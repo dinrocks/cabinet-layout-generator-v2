@@ -1,0 +1,30 @@
+name: Supabase keep-alive
+
+# Supabase free projects pause after 7 days of inactivity. A light REST ping every
+# few days keeps it awake. Needs repo secrets SUPABASE_URL + SUPABASE_ANON_KEY
+# (Settings → Secrets and variables → Actions). If they're unset, the job no-ops.
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *" # ~every 3 days, 06:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Supabase secrets not set — skipping keep-alive."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/allowed_emails?select=email&limit=1")
+          echo "Supabase responded with HTTP $code"
+          # any HTTP response (even 401) proves the project is awake; 000 = no connection
+          if [ "$code" = "000" ]; then echo "No response from Supabase"; exit 1; fi

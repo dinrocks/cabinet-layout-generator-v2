@@ -4,9 +4,21 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — Phase 2 (multi-user)
 
-_Phase 2 (multi-user): Supabase auth + shared projects/library; move hosting to Cloudflare._
+_This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
+
+### Added (Slice 1 — auth + cloud-saved projects)
+- **Supabase auth** with an **email allowlist** (RLS-enforced): sign in with GitHub/Google; only
+  allow-listed emails get access; first login sets a display name.
+- **Cloud-saved projects** — New / Save / Open / list the team's layouts (shared, last-write-wins); each
+  layout (and its non-seed library items) stored as JSON. See `supabase/schema.sql`.
+- **Local-only graceful degrade** — with no Supabase env the editor runs exactly like Phase 1, plus
+  **⬇ / ⬆ JSON** local save/open as a fallback.
+- Keep-alive cron, a provisioning guide (`docs/PHASE2_SETUP.md`), and persistence round-trip tests.
+
+_Next slices: shared equipment library in Supabase Storage + service token-validation; audit log +
+"opened by" presence; finish the Cloudflare move._
 
 ## [0.2.0] — 2026-06-06
 

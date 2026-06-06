@@ -1,7 +1,7 @@
 ---
 doc: SKILL — Cabinet Layout Generator
 purpose: Architecture, pipeline, data shapes, and dependencies a fresh contributor needs to build/extend this tool
-status: Phase 1 complete — multi-user (Phase 2) not started
+status: Phase 1 complete — Phase 2 (multi-user) Slice 1 in progress (auth + cloud-saved projects)
 last_updated: 2026-06-06
 ---
 

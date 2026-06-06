@@ -1,7 +1,13 @@
-<h1 align="center">Cabinet Layout Generator</h1>
+<h1 align="center">Cabinet Layout Generator <sup>· Phase 2</sup></h1>
 
 <p align="center">
   <strong>Lay out a control-cabinet back-plate in the browser — and export a real DXF that opens in GstarCAD.</strong>
+</p>
+
+<p align="center">
+  <sub><b>This is the Phase-2 (multi-user) continuation</b> of
+  <a href="https://github.com/Taamrock04/cabinet-layout-generator">cabinet-layout-generator</a> (the frozen Phase-1 v1).
+  Phase-2 setup: <a href="docs/PHASE2_SETUP.md">docs/PHASE2_SETUP.md</a>.</sub>
 </p>
 
 <p align="center">
@@ -145,8 +151,11 @@ border-snap + auto-span, rows with dimensions, packing, zoom/pan, overlap + clea
 stopper/label locked pairs, user-defined custom parts, equipment DXF upload, and all four exports
 (DXF via the service — every part a named block; PDF/PNG/SVG in-browser).
 
-**Next — Phase 2:** Supabase auth + shared projects/library, then move hosting to Cloudflare. The AI
-socket stays off until then.
+**Phase 2 — in progress (this repo).** Slice 1 shipped: **Supabase auth + email allowlist + cloud-saved
+projects** (save / open / list the team's layouts), with the editor still fully usable offline (local
+JSON save/open). Turn it on via [docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md). Next slices: shared
+equipment library in Supabase + service token-validation, audit log + "opened by" presence, then move the
+finished tool fully onto Cloudflare. The AI socket stays off.
 
 ---
 
