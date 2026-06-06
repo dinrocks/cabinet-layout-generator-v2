@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildDemo } from "./demo";
+import { newModel } from "./model/factory";
 import { SEED_LIBRARY, BANDS } from "./model/library";
-import type { Library, DxfLibItem, RectLibItem } from "./model/types";
+import type { Library, DxfLibItem, RectLibItem, LayoutModel } from "./model/types";
 import { validate } from "./model/validate";
+import { useAuth } from "./auth/AuthContext";
+import { cloudEnabled } from "./lib/supabaseClient";
+import { listProjects, loadProject, saveProject, deleteProject, type ProjectSummary } from "./store/projectStore";
+import { downloadLayout, pickLayoutFile } from "./store/localFile";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
 import {
@@ -47,6 +52,78 @@ export default function App() {
   const [rowEdit, setRowEdit] = useState<{ index: number; x: number; y: number; value: number } | null>(null);
   const [rowMode, setRowMode] = useState<RowResizeMode>("push");
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Phase 2: auth + cloud-saved projects ───────────────────────────────────
+  const auth = useAuth();
+  const ready = auth.status === "ready"; // signed in + allow-listed
+  const [projectId, setProjectId] = useState<string | null>(null); // cloud row id of the open project
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+
+  /** Validate a loaded model against `lib`, then adopt it as the current layout. */
+  function applyLoaded(m: LayoutModel | undefined, lib: Library, cloudId: string | null): boolean {
+    if (!m || !m.project || !m.plate || !Array.isArray(m.elements)) {
+      setStatus({ kind: "error", message: "That file isn't a valid layout." });
+      return false;
+    }
+    const errors = validate(m, lib).filter((i) => i.level === "error");
+    if (errors.length) { setStatus({ kind: "error", message: `Layout rejected: ${errors[0].message}` }); return false; }
+    setLibrary(lib);
+    set(m);
+    setSelections([]);
+    setProjectId(cloudId);
+    return true;
+  }
+
+  async function openProjectsModal() { setProjectList(await listProjects()); setProjectsOpen(true); }
+
+  async function doOpenCloud(id: string) {
+    setCloudBusy(true);
+    const res = await loadProject(id);
+    setCloudBusy(false);
+    if (!res) { setStatus({ kind: "error", message: "Couldn't load that layout." }); return; }
+    if (applyLoaded(res.model, { ...SEED_LIBRARY, ...res.library }, id)) {
+      setProjectsOpen(false);
+      setStatus({ kind: "done", label: "Opened" });
+    }
+  }
+
+  async function doSaveCloud() {
+    if (!ready || !auth.profile) return;
+    setCloudBusy(true);
+    const r = await saveProject(model, library, auth.profile.id, projectId);
+    setCloudBusy(false);
+    if ("error" in r) setStatus({ kind: "error", message: `Save failed: ${r.error}` });
+    else { setProjectId(r.id); setStatus({ kind: "done", label: "Saved" }); }
+  }
+
+  async function doDeleteCloud(id: string) {
+    if (!window.confirm("Delete this layout for everyone?")) return;
+    setCloudBusy(true);
+    const ok = await deleteProject(id);
+    setCloudBusy(false);
+    if (!ok) { setStatus({ kind: "error", message: "Delete failed." }); return; }
+    if (id === projectId) setProjectId(null);
+    setProjectList(await listProjects());
+  }
+
+  function doNewProject() {
+    if (!window.confirm("Start a new layout? Unsaved changes will be lost.")) return;
+    setLibrary({ ...SEED_LIBRARY });
+    set(newModel("Untitled", "tall_floor"));
+    setSelections([]);
+    setProjectId(null);
+  }
+
+  async function doOpenFile() {
+    const res = await pickLayoutFile();
+    if (!res) { setStatus({ kind: "error", message: "Couldn't read that file." }); return; }
+    applyLoaded(res.model, { ...SEED_LIBRARY, ...res.library }, null);
+  }
+
+  const renameProject = (name: string) => set({ ...model, project: { ...model.project, name } });
 
   function commitRowEdit(v: number) {
     if (rowEdit && v > 0) set(setRowHeight(model, rowEdit.index, v, rowMode));
@@ -250,9 +327,20 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <strong>Cabinet Layout Generator</strong>
-        <span className="muted">{model.project.name} · {model.plate.width_mm}×{model.plate.height_mm} mm</span>
+        <span className="muted">
+          <input className="projname" value={model.project.name} onChange={(e) => renameProject(e.target.value)}
+            aria-label="Project name" title="Project name" />
+          {" · "}{model.plate.width_mm}×{model.plate.height_mm} mm
+        </span>
 
         <div className="toolbar">
+          <span className="group">
+            <button type="button" title="New layout" onClick={doNewProject}>New</button>
+            {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={doSaveCloud}>Save</button>}
+            {ready && <button type="button" title="Open a saved layout" onClick={openProjectsModal}>Open…</button>}
+            <button type="button" className="ghost icon" title="Download layout as JSON" onClick={() => downloadLayout(model, library)}>⬇</button>
+            <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={doOpenFile}>⬆</button>
+          </span>
           <span className="group">
             <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
               onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
@@ -304,6 +392,16 @@ export default function App() {
           {status.kind === "busy" && <span className="status">… {status.label}</span>}
           {status.kind === "done" && <span className="status ok">✓ {status.label}</span>}
           {status.kind === "error" && <span className="status err" title={status.message}>✗ {status.message}</span>}
+          <span className="group">
+            {cloudEnabled && ready && auth.profile ? (
+              <span className="acct">
+                <span className="name" title={auth.email ?? ""}>{auth.profile.display_name || auth.email}</span>
+                <button type="button" onClick={auth.signOut}>Sign out</button>
+              </span>
+            ) : !cloudEnabled ? (
+              <span className="acct mode" title="Cloud sign-in not configured — running locally">Local mode</span>
+            ) : null}
+          </span>
         </div>
       </header>
 
@@ -536,6 +634,42 @@ export default function App() {
             else if (e.key === "Escape") setRowEdit(null);
           }}
           onBlur={(e) => commitRowEdit(parseFloat(e.target.value))} />
+      )}
+
+      {projectsOpen && (
+        <div className="modal-overlay" onClick={() => setProjectsOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Open a layout</h3>
+            {projectList.length === 0 ? (
+              <p className="muted small">No saved layouts yet — Save one first.</p>
+            ) : (
+              <ul className="plist">
+                {projectList.map((p) => (
+                  <li key={p.id}>
+                    <button type="button" className="plist-open" disabled={cloudBusy} onClick={() => doOpenCloud(p.id)}>
+                      <span className="pn">{p.name || "Untitled"}</span>
+                      <span className="pm">{p.owner_name ?? "—"} · {new Date(p.updated_at).toLocaleString()}</span>
+                    </button>
+                    <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="modal-actions"><button type="button" onClick={() => setProjectsOpen(false)}>Close</button></div>
+          </div>
+        </div>
+      )}
+
+      {ready && auth.profile && !auth.profile.display_name && (
+        <div className="namep-overlay">
+          <div className="namep">
+            <h3>Welcome 👋</h3>
+            <p>Pick a display name your teammates will see on shared layouts.</p>
+            <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="e.g. Natchanon K."
+              onKeyDown={(e) => { if (e.key === "Enter" && nameDraft.trim()) auth.setDisplayName(nameDraft.trim()); }} />
+            <div className="row"><button type="button" disabled={!nameDraft.trim()} onClick={() => auth.setDisplayName(nameDraft.trim())}>Save</button></div>
+          </div>
+        </div>
       )}
     </div>
   );

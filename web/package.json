@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
     "fabric": "^7.4.0",
     "jspdf": "^4.2.1",
     "react": "^19.2.6",
