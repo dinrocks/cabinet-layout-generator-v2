@@ -12,13 +12,14 @@ import re
 from typing import Any
 
 import ezdxf
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 import dxf_build
 import dxf_upload
+from auth import require_user
 
 app = FastAPI(title="Cabinet Layout — ezdxf service", version="0.1.0")
 
@@ -42,7 +43,7 @@ def health() -> dict[str, str]:
 
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload(file: UploadFile = File(...), _user: str | None = Depends(require_user)) -> dict[str, Any]:
     if not file.filename or not file.filename.lower().endswith(".dxf"):
         raise HTTPException(400, "Expected a .dxf file.")
     data = await file.read()
@@ -68,7 +69,7 @@ def _safe_filename(name: str) -> str:
 
 
 @app.post("/export")
-def export(req: ExportRequest) -> Response:
+def export(req: ExportRequest, _user: str | None = Depends(require_user)) -> Response:
     if req.scale not in (1.0, 0.01):
         raise HTTPException(400, "scale must be 1.0 (1:1) or 0.01 (1:100).")
     try:

@@ -103,3 +103,36 @@ create policy "members update projects" on public.projects
 drop policy if exists "owner or admin delete" on public.projects;
 create policy "owner or admin delete" on public.projects
   for delete using (owner = auth.uid() or public.is_admin());
+
+-- ───────────────────────── Slice 2: shared equipment library ─────────────────────────
+-- Uploaded-DXF parts shared across all projects. The raw block lives in Supabase Storage
+-- (bucket `equipment`, object `<block_ref>.dxf`); this table is the catalog. Add-by-anyone,
+-- edit/delete admin-only.
+create table if not exists public.library_items (
+  lib_key        text primary key,             -- e.g. up_xxxx
+  name           text not null,
+  source         text not null default 'dxf',
+  width_mm       double precision not null,
+  height_mm      double precision not null,
+  block_ref      text not null,                -- Storage object id (<block_ref>.dxf)
+  svg_ref        text,                         -- inline SVG for the editor view
+  rail_offset_mm double precision,
+  created_by     uuid references public.profiles (id),
+  created_at     timestamptz not null default now()
+);
+
+alter table public.library_items enable row level security;
+
+-- members read the whole shared library; any member may add; only admins edit/delete.
+drop policy if exists "members read library" on public.library_items;
+create policy "members read library" on public.library_items
+  for select using (public.is_member());
+drop policy if exists "members add library" on public.library_items;
+create policy "members add library" on public.library_items
+  for insert with check (public.is_member() and created_by = auth.uid());
+drop policy if exists "admins edit library" on public.library_items;
+create policy "admins edit library" on public.library_items
+  for update using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "admins delete library" on public.library_items;
+create policy "admins delete library" on public.library_items
+  for delete using (public.is_admin());
