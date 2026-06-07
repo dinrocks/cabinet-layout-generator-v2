@@ -92,3 +92,7 @@
 .plist .pm { font-size: 11px; color: #6b7280; }
 .plist .danger { padding: 0 10px; border: 1px solid #e0b4b4; background: #fff; color: #c0392b; border-radius: 6px; cursor: pointer; }
 .plist .danger:disabled { opacity: 0.5; cursor: default; }
+
+/* upload modal: "add to shared library" choice */
+.share-opt { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; font-size: 12px; color: #444; cursor: pointer; line-height: 1.4; }
+.share-opt input { margin-top: 2px; flex: none; }

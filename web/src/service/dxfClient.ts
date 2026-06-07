@@ -7,6 +7,13 @@
  * slow — callers surface a "waking service…" state.
  */
 import type { LayoutModel, Library } from "../model/types";
+import { accessToken } from "../lib/supabaseClient";
+
+/** Bearer header when signed in; empty when offline/local (service is open then). */
+async function authHeader(): Promise<Record<string, string>> {
+  const token = await accessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // Default to 127.0.0.1 (not "localhost") so the browser doesn't resolve to IPv6
 // ::1 while uvicorn listens on IPv4 — a common local-dev "Failed to fetch".
@@ -67,7 +74,7 @@ export async function exportDxf(
   );
   const res = await serviceFetch(`/export`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
     body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale] }),
   });
   if (!res.ok) {
@@ -83,7 +90,7 @@ export async function exportDxf(
 export async function uploadDxf(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file);
-  const res = await serviceFetch(`/upload`, { method: "POST", body: form });
+  const res = await serviceFetch(`/upload`, { method: "POST", body: form, headers: await authHeader() });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Upload failed (${res.status}). ${detail}`.trim());

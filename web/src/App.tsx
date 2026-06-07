@@ -8,6 +8,7 @@ import { useAuth } from "./auth/AuthContext";
 import { cloudEnabled } from "./lib/supabaseClient";
 import { listProjects, loadProject, saveProject, deleteProject, type ProjectSummary } from "./store/projectStore";
 import { downloadLayout, pickLayoutFile } from "./store/localFile";
+import { listLibraryItems, addLibraryItem } from "./store/libraryStore";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
 import {
@@ -61,13 +62,27 @@ export default function App() {
   const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [sharedLib, setSharedLib] = useState<Library>({}); // the shared equipment catalog (library_items)
 
-  /** Validate a loaded model against `lib`, then adopt it as the current layout. */
-  function applyLoaded(m: LayoutModel | undefined, lib: Library, cloudId: string | null): boolean {
+  /** Load the shared library into state once signed in (everyone sees uploaded shared parts). */
+  useEffect(() => {
+    if (auth.status !== "ready") return;
+    let alive = true;
+    listLibraryItems().then((items) => {
+      if (!alive) return;
+      setSharedLib(items);
+      setLibrary((l) => ({ ...l, ...items }));
+    });
+    return () => { alive = false; };
+  }, [auth.status]);
+
+  /** Validate a loaded model (against seed + shared + its project-local parts), then adopt it. */
+  function applyLoaded(m: LayoutModel | undefined, projectLocalLib: Library, cloudId: string | null): boolean {
     if (!m || !m.project || !m.plate || !Array.isArray(m.elements)) {
       setStatus({ kind: "error", message: "That file isn't a valid layout." });
       return false;
     }
+    const lib: Library = { ...SEED_LIBRARY, ...sharedLib, ...projectLocalLib };
     const errors = validate(m, lib).filter((i) => i.level === "error");
     if (errors.length) { setStatus({ kind: "error", message: `Layout rejected: ${errors[0].message}` }); return false; }
     setLibrary(lib);
@@ -84,7 +99,7 @@ export default function App() {
     const res = await loadProject(id);
     setCloudBusy(false);
     if (!res) { setStatus({ kind: "error", message: "Couldn't load that layout." }); return; }
-    if (applyLoaded(res.model, { ...SEED_LIBRARY, ...res.library }, id)) {
+    if (applyLoaded(res.model, res.library, id)) {
       setProjectsOpen(false);
       setStatus({ kind: "done", label: "Opened" });
     }
@@ -93,7 +108,7 @@ export default function App() {
   async function doSaveCloud() {
     if (!ready || !auth.profile) return;
     setCloudBusy(true);
-    const r = await saveProject(model, library, auth.profile.id, projectId);
+    const r = await saveProject(model, library, new Set(Object.keys(sharedLib)), auth.profile.id, projectId);
     setCloudBusy(false);
     if ("error" in r) setStatus({ kind: "error", message: `Save failed: ${r.error}` });
     else { setProjectId(r.id); setStatus({ kind: "done", label: "Saved" }); }
@@ -111,7 +126,7 @@ export default function App() {
 
   function doNewProject() {
     if (!window.confirm("Start a new layout? Unsaved changes will be lost.")) return;
-    setLibrary({ ...SEED_LIBRARY });
+    setLibrary({ ...SEED_LIBRARY, ...sharedLib }); // keep the shared catalog available
     set(newModel("Untitled", "tall_floor"));
     setSelections([]);
     setProjectId(null);
@@ -120,7 +135,7 @@ export default function App() {
   async function doOpenFile() {
     const res = await pickLayoutFile();
     if (!res) { setStatus({ kind: "error", message: "Couldn't read that file." }); return; }
-    applyLoaded(res.model, { ...SEED_LIBRARY, ...res.library }, null);
+    applyLoaded(res.model, res.library, null);
   }
 
   const renameProject = (name: string) => set({ ...model, project: { ...model.project, name } });
@@ -309,7 +324,7 @@ export default function App() {
       setUpload({ status: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }
-  function confirmUpload(name: string) {
+  async function confirmUpload(name: string, shared: boolean) {
     if (upload.status !== "confirm") return;
     const key = `up_${Date.now().toString(36)}`;
     const item: DxfLibItem = {
@@ -317,8 +332,13 @@ export default function App() {
       width_mm: upload.result.width_mm, height_mm: upload.result.height_mm,
       block_ref: upload.result.block_ref, svg_ref: upload.result.svg,
     };
-    setLibrary((l) => ({ ...l, [key]: item }));
+    setLibrary((l) => ({ ...l, [key]: item })); // available in this project immediately
     setUpload({ status: "idle" });
+    if (shared && ready && auth.profile) {
+      const ok = await addLibraryItem(item, auth.profile.id);
+      if (ok) setSharedLib((s) => ({ ...s, [key]: item }));
+      else setStatus({ kind: "error", message: "Added here, but couldn't add to the shared library." });
+    }
   }
 
   const uploadedItems = Object.values(library).filter((it) => it.source === "dxf");
@@ -622,7 +642,7 @@ export default function App() {
       </aside>
 
       {upload.status === "confirm" && (
-        <UploadModal result={upload.result} defaultName={upload.name}
+        <UploadModal result={upload.result} defaultName={upload.name} canShare={ready}
           onConfirm={confirmUpload} onCancel={() => setUpload({ status: "idle" })} />
       )}
 

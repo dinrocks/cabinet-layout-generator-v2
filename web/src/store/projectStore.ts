@@ -7,9 +7,15 @@ import { supabase } from "../lib/supabaseClient";
 import { SEED_LIBRARY } from "../model/library";
 import type { LayoutModel, Library } from "../model/types";
 
-/** Library items NOT in the static seed (custom + uploaded parts) — the bit a project must carry. */
-function nonSeed(library: Library): Library {
-  return Object.fromEntries(Object.entries(library).filter(([k]) => !(k in SEED_LIBRARY)));
+/**
+ * The library items a project must carry itself: everything that's neither in the
+ * static seed nor in the shared catalog (i.e. custom parts + project-local uploads).
+ * Shared parts come from `library_items` on load, so they're not duplicated here.
+ */
+export function projectLocal(library: Library, sharedKeys: ReadonlySet<string>): Library {
+  return Object.fromEntries(
+    Object.entries(library).filter(([k]) => !(k in SEED_LIBRARY) && !sharedKeys.has(k)),
+  );
 }
 
 export interface ProjectSummary {
@@ -69,7 +75,7 @@ export type SaveResult = { id: string } | { error: string };
  * null for a fresh one) decides update vs insert — kept separate from the model so
  * adopting a new id never pollutes undo history. Returns the row id to remember.
  */
-export async function saveProject(model: LayoutModel, library: Library, userId: string, existingId: string | null): Promise<SaveResult> {
+export async function saveProject(model: LayoutModel, library: Library, sharedKeys: ReadonlySet<string>, userId: string, existingId: string | null): Promise<SaveResult> {
   if (!supabase) return { error: "offline" };
   const p = model.project;
   const row = {
@@ -77,7 +83,7 @@ export async function saveProject(model: LayoutModel, library: Library, userId: 
     panel_tag: p.panel_tag ?? "",
     rev: p.rev || "A",
     layout: model,
-    library: nonSeed(library),
+    library: projectLocal(library, sharedKeys),
     updated_by: userId,
     updated_at: new Date().toISOString(),
   };
