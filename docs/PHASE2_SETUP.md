@@ -97,4 +97,42 @@ The [`keepalive.yml`](../.github/workflows/keepalive.yml) workflow then pings Su
    layout — the graceful-degrade path.
 
 > **Never** put the `service_role` key in the frontend, Cloudflare, or this repo. The browser only ever
-> uses the **anon** key; the service_role key is for the ezdxf service later (Slice 2).
+> uses the **anon** key; the service_role key is for the ezdxf service (Slice 2, below).
+
+---
+
+# Slice 2 — durable + shared equipment library, secured service
+
+Makes uploaded-DXF parts **durable** (survive Render restarts) and optionally **shared** across projects,
+and turns the ezdxf service into an **authenticated** endpoint. All steps are additive; if you skip them,
+the app keeps working exactly as Slice 1 (uploads stay per-project + ephemeral, service stays open).
+
+### 1. Storage bucket + table
+1. Supabase → **Storage → New bucket** → name **`equipment`**, **Private**.
+2. Supabase → **SQL Editor** → re-run [`supabase/schema.sql`](../supabase/schema.sql) (it's idempotent —
+   adds the new `library_items` table + policies; existing tables are untouched).
+
+### 2. Render env (the ezdxf service)
+On your **`cabinet-ezdxf-*`** service → **Environment**, add:
+```
+SUPABASE_URL         = https://kfxhtqeooxvmikcgmfkc.supabase.co
+SUPABASE_SERVICE_KEY = <service_role key>   ← Supabase → Settings → API (SECRET; server-side only)
+SUPABASE_BUCKET      = equipment
+```
+> Leave **`SUPABASE_JWT_SECRET` unset for now** — that's the auth switch (step 4).
+
+### 3. Deploy the new frontend
+Push lands on Cloudflare automatically. The app now sends the auth token and offers the **"Add to the
+shared library"** checkbox on upload.
+
+### 4. Flip on auth (after step 3 is live — clean cutover)
+On Render add `SUPABASE_JWT_SECRET = <JWT secret>` (Supabase → Settings → API → **JWT Secret**) → save
+(Render redeploys). From now the service **rejects requests without a valid token**.
+
+### Verify Slice 2
+1. **Upload** an equipment DXF → confirm modal shows the picture + size → tick **"Add to the shared
+   library"** → Add. It appears under *Uploaded parts*.
+2. **Restart** the Render service → still **Export DXF** that part (block pulled from Storage).
+3. Open a **different project** / sign in as a **second teammate** → the shared part is there.
+4. Upload another with the checkbox **off** → it shows only in *this* project.
+5. (Optional) `curl` `/export` without a token after step 4 → **401**.

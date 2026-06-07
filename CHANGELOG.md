@@ -17,8 +17,16 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   **⬇ / ⬆ JSON** local save/open as a fallback.
 - Keep-alive cron, a provisioning guide (`docs/PHASE2_SETUP.md`), and persistence round-trip tests.
 
-_Next slices: shared equipment library in Supabase Storage + service token-validation; audit log +
-"opened by" presence; finish the Cloudflare move._
+### Added (Slice 2 — durable + shared equipment library, secured service)
+- **Durable uploaded parts** — the ezdxf service stores blocks in **Supabase Storage** (with a local
+  cache), so a part survives a Render restart/redeploy. `store.py` keeps its tiny `put`/`path` interface.
+- **Shared equipment library** — on upload, a checkbox offers **"Add to the shared library"**: shared
+  parts live in a `library_items` catalog (add-by-anyone, delete admin-only) usable in every project by
+  everyone; unticked uploads stay project-local. The catalog loads on sign-in.
+- **Secured service** — `/upload` and `/export` validate the Supabase JWT when `SUPABASE_JWT_SECRET` is
+  set (open in local dev). The frontend sends the bearer token.
+
+_Next slices: audit log + "opened by" presence; finish the Cloudflare move._
 
 ## [0.2.0] — 2026-06-06
 
