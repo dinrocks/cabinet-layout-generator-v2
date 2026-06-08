@@ -7,7 +7,7 @@ import { useAuth } from "./auth/AuthContext";
 import { cloudEnabled } from "./lib/supabaseClient";
 import { listProjects, loadProject, saveProject, deleteProject, type ProjectSummary } from "./store/projectStore";
 import { downloadLayout, pickLayoutFile } from "./store/localFile";
-import { listLibraryItems, addLibraryItem } from "./store/libraryStore";
+import { listLibraryItems, addLibraryItem, updateLibraryItem, deleteLibraryItem } from "./store/libraryStore";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
 import {
@@ -308,6 +308,38 @@ export default function App() {
     set(m);
     setSelections([{ id: r.id, kind: "element" }]);
   }
+
+  /** Rename a library part (and the shared catalog if it's a shared part — admin RLS). */
+  async function renameLibraryPart(libKey: string) {
+    const cur = library[libKey];
+    if (!cur) return;
+    const input = window.prompt("Rename part", cur.name);
+    if (input == null) return;
+    const name = input.trim();
+    if (!name) return;
+    setLibrary((l) => ({ ...l, [libKey]: { ...l[libKey], name } }));
+    if (sharedLib[libKey]) {
+      setSharedLib((s) => ({ ...s, [libKey]: { ...s[libKey], name } }));
+      if (!(await updateLibraryItem(libKey, { name })))
+        setStatus({ kind: "error", message: "Renamed locally, but the shared-library update was rejected (admin only)." });
+    }
+  }
+
+  /** Remove a part from the library (and the shared catalog if shared — admin RLS). */
+  async function deleteLibraryPart(libKey: string) {
+    const inUse = model.elements.some((e) => e.lib_key === libKey) || model.groups.some((g) => g.lib_key === libKey);
+    const msg = inUse
+      ? "This part is placed in the current layout — deleting it leaves those items unresolved. Delete from the library anyway?"
+      : "Delete this part from the library?";
+    if (!window.confirm(msg)) return;
+    setLibrary((l) => { const c = { ...l }; delete c[libKey]; return c; });
+    if (sharedLib[libKey]) {
+      setSharedLib((s) => { const c = { ...s }; delete c[libKey]; return c; });
+      if (!(await deleteLibraryItem(libKey)))
+        setStatus({ kind: "error", message: "Removed locally, but the shared-library delete was rejected (admin only)." });
+    }
+  }
+
   /**
    * A generic placeholder device (no CAD file yet): a per-instance rectangle the
    * engineer sizes and names in the panel. Each click makes its own library item
@@ -458,11 +490,15 @@ export default function App() {
             <div key={band.band} className="band">
               <div className="band-name">{band.band}. {band.name}</div>
               {items.map((it) => (
-                <button key={it.lib_key} type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm`}
-                  draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
-                  onClick={() => addPart(it.lib_key)}>
-                  {it.name}{it.confirm ? " *" : ""}
-                </button>
+                <div key={it.lib_key} className="lib-row">
+                  <button type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm — click or drag to add`}
+                    draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
+                    onClick={() => addPart(it.lib_key)}>
+                    {it.name || "(unnamed)"}{it.confirm ? " *" : ""}
+                  </button>
+                  <button type="button" className="lib-mini" title="Rename" onClick={() => renameLibraryPart(it.lib_key)}>✎</button>
+                  <button type="button" className="lib-mini" title="Delete from library" onClick={() => deleteLibraryPart(it.lib_key)}>✕</button>
+                </div>
               ))}
               {items.length === 0 && <p className="band-empty">— empty —</p>}
             </div>

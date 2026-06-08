@@ -374,8 +374,14 @@ export default function FabricStage(props: Props) {
         left: el.x_mm, top: el.y_mm, width: f.w, height: f.h,
         fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(el.id),
       })));
+      // a stopper carrying a label plate renders plain WHITE (skip its DXF graphic) so the
+      // label's marker text reads clearly on top
+      const labelled = !!el.pair_id && model.elements.some((o) => {
+        const oi = library[o.lib_key];
+        return o.id !== el.id && o.pair_id === el.pair_id && oi?.source === "rect" && oi.label_plate === true;
+      });
       // overlay the real uploaded geometry on top of the footprint rect (visual only)
-      if (item && item.source === "dxf" && item.svg_ref && !overlapIds.has(el.id) && !tightIds.has(el.id)) {
+      if (item && item.source === "dxf" && item.svg_ref && !labelled && !overlapIds.has(el.id) && !tightIds.has(el.id)) {
         const cx = el.x_mm + f.w / 2;
         const cy = el.y_mm + f.h / 2;
         loadSVGFromString(item.svg_ref).then((res) => {

@@ -100,3 +100,9 @@
 
 /* empty library category placeholder in the sidebar */
 .band-empty { margin: 2px 0 0; font-size: 11px; color: #b6bcc6; font-style: italic; }
+
+/* library part row: add-button + rename/delete minis */
+.lib-row { display: flex; gap: 2px; align-items: stretch; margin: 2px 0; }
+.lib-row .lib-item { flex: 1; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-mini { font-size: 11px; padding: 0 7px; border: 1px solid #e3e3e3; background: #fafafa; border-radius: 4px; cursor: pointer; color: #9aa3af; }
+.lib-mini:hover { background: #eef3ff; border-color: #2f6fed; color: #2f6fed; }

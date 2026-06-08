@@ -50,6 +50,13 @@ export async function addLibraryItem(item: DxfLibItem, userId: string): Promise<
   return !error;
 }
 
+/** Rename / recategorise a shared part (admin-only, enforced by RLS). */
+export async function updateLibraryItem(libKey: string, patch: { name?: string; band?: number }): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("library_items").update(patch).eq("lib_key", libKey);
+  return !error;
+}
+
 /** Remove a shared part (admin-only, enforced by RLS). */
 export async function deleteLibraryItem(libKey: string): Promise<boolean> {
   if (!supabase) return false;
