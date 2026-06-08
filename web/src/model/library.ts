@@ -51,13 +51,19 @@ export const BANDS = [
   { band: 2, name: "Control & comms (PLC, IO, modem)" },
   { band: 3, name: "Relays" },
   { band: 4, name: "Terminal blocks" },
-  { band: 5, name: "Power distribution" },
-  { band: 6, name: "Ground bar" },
+  { band: 5, name: "Ground bar" },
+  { band: 6, name: "Stopper" },
+  { band: 7, name: "Slim Stopper" },
 ] as const;
 
+/** Categories whose parts behave as stoppers (get the "Add label plate" pairing; BOM type tag). */
+export const STOPPER_BANDS: ReadonlySet<number> = new Set([6, 7]);
+
 /**
- * Seed parts. `confirm:true` = unconfirmed estimate (replace from datasheet/DXF).
- * Sizes are the device FOOTPRINT in mm (width × height as mounted).
+ * NOTE: the product no longer seeds the palette from this — the editor starts with
+ * an EMPTY library and is populated by uploads (per the AMR house-style cleanup).
+ * It's retained as the unit-test fixture (known parts + sizes) and as reference.
+ * `confirm:true` = unconfirmed estimate; sizes are the device FOOTPRINT in mm.
  */
 export const SEED_LIBRARY: Library = {
   // --- Band 2: control & comms ---

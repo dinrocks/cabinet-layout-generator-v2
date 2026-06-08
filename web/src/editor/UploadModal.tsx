@@ -2,11 +2,11 @@
  * Equipment upload confirm dialog (SKILL.md §3.1).
  *
  * Shows the SVG the service rendered (the picture) + the measured size; the
- * engineer CONFIRMs before the part joins the library, or Cancels. When signed in,
- * a checkbox offers to add it to the SHARED library (permanent, usable in every
- * project) vs. keep it to this project only.
+ * engineer picks a CATEGORY and CONFIRMs before the part joins the library, or
+ * Cancels. When signed in, a checkbox offers to add it to the SHARED library.
  */
 import { useState } from "react";
+import { BANDS } from "../model/library";
 import type { UploadResult } from "../service/dxfClient";
 
 interface Props {
@@ -14,14 +14,15 @@ interface Props {
   defaultName: string;
   /** true when signed in (cloud), so the part can be shared. */
   canShare: boolean;
-  onConfirm: (name: string, shared: boolean) => void;
+  onConfirm: (name: string, shared: boolean, band: number) => void;
   onCancel: () => void;
 }
 
 export default function UploadModal({ result, defaultName, canShare, onConfirm, onCancel }: Props) {
   const [name, setName] = useState(defaultName);
   const [shared, setShared] = useState(false);
-  const confirm = () => { if (name.trim()) onConfirm(name.trim(), canShare && shared); };
+  const [band, setBand] = useState<number>(BANDS[0].band);
+  const confirm = () => { if (name.trim()) onConfirm(name.trim(), canShare && shared, band); };
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -44,6 +45,13 @@ export default function UploadModal({ result, defaultName, canShare, onConfirm, 
           <input type="text" value={name} autoFocus
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") confirm(); }} />
+        </label>
+
+        <label className="prow">
+          <span className="plabel">Category</span>
+          <select value={band} onChange={(e) => setBand(Number(e.target.value))}>
+            {BANDS.map((b) => <option key={b.band} value={b.band}>{b.band}. {b.name}</option>)}
+          </select>
         </label>
 
         {canShare && (

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildDemo } from "./demo";
 import { newModel } from "./model/factory";
-import { SEED_LIBRARY, BANDS } from "./model/library";
+import { BANDS, STOPPER_BANDS } from "./model/library";
 import type { Library, DxfLibItem, RectLibItem, LayoutModel } from "./model/types";
 import { validate } from "./model/validate";
 import { useAuth } from "./auth/AuthContext";
@@ -38,8 +37,8 @@ type Upload =
   | { status: "error"; message: string };
 
 export default function App() {
-  const { model, set, undo, redo, canUndo, canRedo } = useHistory(buildDemo());
-  const [library, setLibrary] = useState<Library>(() => ({ ...SEED_LIBRARY }));
+  const { model, set, undo, redo, canUndo, canRedo } = useHistory(newModel("Untitled", "tall_floor"));
+  const [library, setLibrary] = useState<Library>(() => ({})); // empty; populated by uploads
   const [selections, setSelections] = useState<Selection[]>([]);
   const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
   const [alignEnabled, setAlignEnabled] = useState(true); // rail-snap on drag
@@ -82,7 +81,7 @@ export default function App() {
       setStatus({ kind: "error", message: "That file isn't a valid layout." });
       return false;
     }
-    const lib: Library = { ...SEED_LIBRARY, ...sharedLib, ...projectLocalLib };
+    const lib: Library = { ...sharedLib, ...projectLocalLib };
     const errors = validate(m, lib).filter((i) => i.level === "error");
     if (errors.length) { setStatus({ kind: "error", message: `Layout rejected: ${errors[0].message}` }); return false; }
     setLibrary(lib);
@@ -126,7 +125,7 @@ export default function App() {
 
   function doNewProject() {
     if (!window.confirm("Start a new layout? Unsaved changes will be lost.")) return;
-    setLibrary({ ...SEED_LIBRARY, ...sharedLib }); // keep the shared catalog available
+    setLibrary({ ...sharedLib }); // keep the shared catalog available
     set(newModel("Untitled", "tall_floor"));
     setSelections([]);
     setProjectId(null);
@@ -286,19 +285,28 @@ export default function App() {
     setSelections([{ id, kind: "element" }]);
   }
   /**
-   * "Stopper with Label" = a stopper + a coincident label plate, as TWO objects so
-   * BOM / CAD block-count tallies 1 stopper + 1 label (not "1 combo"). The label is
-   * selected so you can type its marker straight away.
+   * Add a same-size label plate onto the selected stopper (a part in a Stopper /
+   * Slim-Stopper category) as a LOCKED PAIR: they move / rotate / delete together
+   * but stay two parts (1 stopper + 1 label). The label is selected so you can type
+   * its marker straight away.
    */
-  function addStopperWithLabel() {
+  function addLabelPlate() {
+    if (!selEl) return;
+    const stopper = library[selEl.lib_key];
+    if (!stopper) return;
+    const lkey = `lbl_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+    const labelItem: RectLibItem = {
+      lib_key: lkey, source: "rect", name: "", label_plate: true,
+      width_mm: stopper.width_mm, height_mm: stopper.height_mm,
+    };
+    const lib2 = { ...library, [lkey]: labelItem };
     const pid = `pair_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-    const a = addElement(model, "term_stopper", library);
-    const st = a.model.elements.find((e) => e.id === a.id);
-    const b = addElement(a.model, "term_stopper_label", library, st?.x_mm, st?.y_mm);
-    let m = updateElement(b.model, a.id, { pair_id: pid });
-    m = updateElement(m, b.id, { pair_id: pid });
+    const r = addElement(model, lkey, lib2, selEl.x_mm, selEl.y_mm);
+    let m = updateElement(r.model, selEl.id, { pair_id: pid });
+    m = updateElement(m, r.id, { pair_id: pid, rot_deg: selEl.rot_deg });
+    setLibrary(lib2);
     set(m);
-    setSelections([{ id: b.id, kind: "element" }]);
+    setSelections([{ id: r.id, kind: "element" }]);
   }
   /**
    * A generic placeholder device (no CAD file yet): a per-instance rectangle the
@@ -324,11 +332,11 @@ export default function App() {
       setUpload({ status: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }
-  async function confirmUpload(name: string, shared: boolean) {
+  async function confirmUpload(name: string, shared: boolean, band: number) {
     if (upload.status !== "confirm") return;
     const key = `up_${Date.now().toString(36)}`;
     const item: DxfLibItem = {
-      lib_key: key, name, source: "dxf",
+      lib_key: key, name, source: "dxf", band,
       width_mm: upload.result.width_mm, height_mm: upload.result.height_mm,
       block_ref: upload.result.block_ref, svg_ref: upload.result.svg,
     };
@@ -340,8 +348,6 @@ export default function App() {
       else setStatus({ kind: "error", message: "Added here, but couldn't add to the shared library." });
     }
   }
-
-  const uploadedItems = Object.values(library).filter((it) => it.source === "dxf");
 
   return (
     <div className="app">
@@ -446,37 +452,19 @@ export default function App() {
           <p className="upload-hint">⚠ DXF service offline — start it (port 8000) to upload/export. PDF/PNG/SVG work without it.</p>
         )}
 
-        {uploadedItems.length > 0 && (
-          <div className="band">
-            <div className="band-name">Uploaded parts</div>
-            {uploadedItems.map((it) => (
-              <button key={it.lib_key} type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm`}
-                draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
-                onClick={() => addPart(it.lib_key)}>
-                {it.name}
-              </button>
-            ))}
-          </div>
-        )}
-
         {BANDS.map((band) => {
           const items = Object.values(library).filter((it) => it.band === band.band);
-          if (items.length === 0) return null;
           return (
             <div key={band.band} className="band">
               <div className="band-name">{band.band}. {band.name}</div>
               {items.map((it) => (
                 <button key={it.lib_key} type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm`}
+                  draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
                   onClick={() => addPart(it.lib_key)}>
                   {it.name}{it.confirm ? " *" : ""}
                 </button>
               ))}
-              {band.band === 4 && (
-                <button type="button" className="lib-item" title="Stopper + a coincident label plate (counts as 2: 1 stopper + 1 label)"
-                  onClick={addStopperWithLabel}>
-                  Stopper with Label
-                </button>
-              )}
+              {items.length === 0 && <p className="band-empty">— empty —</p>}
             </div>
           );
         })}
@@ -554,6 +542,9 @@ export default function App() {
               onChange={(v) => setLibrary((l) => ({ ...l, [selEl.lib_key]: { ...l[selEl.lib_key], rail_offset_mm: v } }))} />
             <Row label="Rotation"><span className="ro">{selEl.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
             <div className="panel-actions">
+              {STOPPER_BANDS.has(library[selEl.lib_key]?.band ?? -1) && (
+                <button type="button" title="Drop a same-size label plate on this stopper (locked pair)" onClick={addLabelPlate}>Add label plate</button>
+              )}
               <button type="button" onClick={() => addPartLabel("element", selEl.id)}>+ Label</button>
               <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
             </div>

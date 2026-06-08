@@ -26,6 +26,17 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Secured service** — `/upload` and `/export` validate the Supabase JWT when `SUPABASE_JWT_SECRET` is
   set (open in local dev). The frontend sends the bearer token.
 
+### Changed (library reorg — AMR house style)
+- **Empty starting library** — the editor opens on a **blank plate** and the palette categories start
+  empty; you build the library by **uploading** parts. (The old seed parts remain only as a test fixture.)
+- **Categories** are now: 1 Power & protection · 2 Control & comms · 3 Relays · 4 Terminal blocks ·
+  5 Ground bar · **6 Stopper** · **7 Slim Stopper** ("Power distribution" removed). Empty categories still
+  show so the structure is visible.
+- **Upload picks a category** (dropdown in the confirm modal); shared uploads store it (`library_items.band`
+  — re-run `supabase/schema.sql` once to add the column). Stopper / Slim-Stopper category = the BOM "type".
+- **Stopper with Label → "Add label plate"** — select a placed stopper-category part and drop a same-size
+  label plate on it as a locked pair (replaces the old fixed Stopper / Stopper-with-Label buttons).
+
 _Next slices: audit log + "opened by" presence; finish the Cloudflare move._
 
 ## [0.2.0] — 2026-06-06

@@ -14,6 +14,7 @@ interface Row {
   block_ref: string;
   svg_ref: string | null;
   rail_offset_mm: number | null;
+  band: number | null;
 }
 
 /** All shared parts, keyed by lib_key, ready to merge into the library state. */
@@ -21,7 +22,7 @@ export async function listLibraryItems(): Promise<Library> {
   if (!supabase) return {};
   const { data, error } = await supabase
     .from("library_items")
-    .select("lib_key,name,width_mm,height_mm,block_ref,svg_ref,rail_offset_mm");
+    .select("lib_key,name,width_mm,height_mm,block_ref,svg_ref,rail_offset_mm,band");
   if (error || !data) return {};
   const out: Library = {};
   for (const r of data as Row[]) {
@@ -31,6 +32,7 @@ export async function listLibraryItems(): Promise<Library> {
       block_ref: r.block_ref, svg_ref: r.svg_ref ?? "",
     };
     if (r.rail_offset_mm != null) item.rail_offset_mm = r.rail_offset_mm;
+    if (r.band != null) item.band = r.band;
     out[r.lib_key] = item;
   }
   return out;
@@ -43,7 +45,7 @@ export async function addLibraryItem(item: DxfLibItem, userId: string): Promise<
     lib_key: item.lib_key, name: item.name, source: "dxf",
     width_mm: item.width_mm, height_mm: item.height_mm,
     block_ref: item.block_ref, svg_ref: item.svg_ref ?? null,
-    rail_offset_mm: item.rail_offset_mm ?? null, created_by: userId,
+    rail_offset_mm: item.rail_offset_mm ?? null, band: item.band ?? null, created_by: userId,
   });
   return !error;
 }
