@@ -407,7 +407,7 @@ export default function FabricStage(props: Props) {
           selectable: false, evented: false,
           originX: "center", originY: "center",
           left: el.x_mm + f.w / 2, top: el.y_mm + f.h / 2,
-          angle: el.rot_deg - 90,
+          angle: el.rot_deg + 90,
         }));
       } else if (el.tag) {
         const tagH = 10;

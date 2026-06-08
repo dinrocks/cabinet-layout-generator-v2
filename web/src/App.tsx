@@ -491,7 +491,7 @@ export default function App() {
               <div className="band-name">{band.band}. {band.name}</div>
               {items.map((it) => (
                 <div key={it.lib_key} className="lib-row">
-                  <button type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm — click or drag to add`}
+                  <button type="button" className="lib-item" title={`${it.name || "(unnamed)"} · ${it.width_mm}×${it.height_mm} mm — click or drag to add`}
                     draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
                     onClick={() => addPart(it.lib_key)}>
                     {it.name || "(unnamed)"}{it.confirm ? " *" : ""}

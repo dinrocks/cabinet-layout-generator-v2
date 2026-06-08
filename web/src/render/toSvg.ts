@@ -73,7 +73,7 @@ function renderElement(el: Element, library: Library): string {
   if (item.source === "rect" && item.label_plate) {
     // marker plate: tag centered + vertical (like "AC-L"); blank until tagged
     const txt = el.tag
-      ? tagText(el.tag, el.x_mm + f.w / 2, el.y_mm + f.h / 2, el.rot_deg - 90, Math.min(6, 0.6 * size.w))
+      ? tagText(el.tag, el.x_mm + f.w / 2, el.y_mm + f.h / 2, el.rot_deg + 90, Math.min(6, 0.6 * size.w))
       : "";
     return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
   }

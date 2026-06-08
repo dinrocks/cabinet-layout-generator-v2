@@ -37,6 +37,13 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Stopper with Label → "Add label plate"** — select a placed stopper-category part and drop a same-size
   label plate on it as a locked pair (replaces the old fixed Stopper / Stopper-with-Label buttons).
 
+### Fixed (labelled-stopper readability + sidebar tooltip)
+- **Labelled stoppers read in CAD** — the DXF export now masks a labelled stopper's geometry with a
+  `WIPEOUT` so the centered marker is visible in GstarCAD (previously the stopper block drew over it).
+- **Label faces the other way** — the marker text is rotated 180° from before (now `rot + 90`) in the
+  editor, SVG/PDF/PNG and DXF, so all paths agree.
+- **Sidebar tooltip** shows the part **name** (plus its size) when hovering a library part.
+
 _Next slices: audit log + "opened by" presence; finish the Cloudflare move._
 
 ## [0.2.0] — 2026-06-06

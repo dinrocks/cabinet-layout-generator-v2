@@ -35,6 +35,8 @@ library = {
     "psu_switching_24vdc": {"source": "rect", "name": "PSU 24VDC", "width_mm": 40, "height_mm": 110},
     "term_degson_2c_2_5": {"source": "rect", "name": "Degson 2C", "width_mm": 5.2, "height_mm": 50},
     "cust1": {"source": "rect", "name": "ACME-9", "width_mm": 60, "height_mm": 40, "custom": True},
+    "stop_blue": {"source": "rect", "name": "Stopper", "width_mm": 8, "height_mm": 35},
+    "lbl_x": {"source": "rect", "name": "", "width_mm": 8, "height_mm": 35, "label_plate": True},
 }
 
 # 3) a tall-enclosure demo model (mirrors the web demo)
@@ -57,6 +59,11 @@ model = {
          "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False},
         {"id": "e_cust", "lib_key": "cust1", "tag": "U1", "x_mm": SD + 500, "y_mm": 320, "rot_deg": 0,
          "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False},
+        # a stopper + coincident label plate (locked pair): geometry should be masked
+        {"id": "e_stop", "lib_key": "stop_blue", "tag": None, "x_mm": SD + 600, "y_mm": 170, "rot_deg": 0,
+         "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False, "pair_id": "ps1"},
+        {"id": "e_lbl", "lib_key": "lbl_x", "tag": "X1", "x_mm": SD + 600, "y_mm": 170, "rot_deg": 0,
+         "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False, "pair_id": "ps1"},
     ],
     "groups": [
         {"id": "g_term", "kind": "set", "lib_key": "term_degson_2c_2_5", "count": 12,
@@ -85,6 +92,13 @@ assert by_block["EQ_term_degson_2c_2_5"] == 12, "each set member is a countable 
 assert by_block["EQ_cust1"] == 1, "a custom placeholder is its own countable block"
 texts = [e.dxf.text for e in msp if e.dxftype() == "TEXT"]
 assert "ACME-9" in texts, "custom part-no drawn centered inside the box"
+
+# a labelled stopper masks its own geometry with exactly one WIPEOUT, and the
+# marker text is still drawn (on top of the mask)
+wipeouts = [e for e in msp if e.dxftype() == "WIPEOUT"]
+assert len(wipeouts) == 1, f"one wipeout for the labelled stopper, got {len(wipeouts)}"
+assert "X1" in texts, "the label marker reads over the masked stopper"
+print("OK: labelled stopper masked by 1 wipeout, marker 'X1' on top")
 
 # the two FC6A INSERTs must NOT overlap (rotated-anchor fix)
 fc6a = [e for e in all_inserts if e.dxf.name == "EQ_plc_idec_FC6A_D16"]

@@ -215,6 +215,30 @@ class DxfAssembler:
                         "xscale": self.scale, "yscale": self.scale},
         )
 
+    def _has_label(self, el: dict[str, Any]) -> bool:
+        """True if this element is a stopper carrying a coincident label plate (its
+        pair-mate is a label_plate part) — its geometry should be masked so the
+        marker reads."""
+        pid = el.get("pair_id")
+        if not pid:
+            return False
+        eid = el.get("id")
+        for o in self.model.get("elements", []):
+            if o.get("id") == eid or o.get("pair_id") != pid:
+                continue
+            oi = self.library.get(o.get("lib_key"))
+            if oi and oi.get("label_plate"):
+                return True
+        return False
+
+    def _wipeout(self, x: float, y_top: float, w: float, h: float) -> None:
+        """A WIPEOUT over the footprint — masks whatever is drawn behind it (prints
+        blank), so a labelled stopper reads cleanly. Drawn after the part's block and
+        before the label, so the label stays on top."""
+        x0, y0 = self._to_dxf(x, y_top + h)  # lower-left
+        x1, y1 = x0 + self._s(w), y0 + self._s(h)
+        self.msp.add_wipeout([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+
     def _place_element(self, el: dict[str, Any]) -> None:
         item = self.library.get(el["lib_key"])
         if item is None:
@@ -230,13 +254,16 @@ class DxfAssembler:
         else:
             block_name = self._unit_block(el["lib_key"], w, h)
         self._place_block(block_name, w, h, x, y_top, rot)
+        # a labelled stopper: mask its geometry so the marker on the label reads
+        if self._has_label(el):
+            self._wipeout(x, y_top, fw, fh)
 
         tag = el.get("tag")
         if tag:
             if item.get("label_plate"):
                 # marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
                 self._text(tag, x + fw / 2, y_top + fh / 2,
-                           min(6.0, 0.6 * w), rot_deg=(rot - 90) % 360)
+                           min(6.0, 0.6 * w), rot_deg=(rot + 90) % 360)
             else:
                 # top-left of the part, 2.5mm above; rotate if wider than the part
                 bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
