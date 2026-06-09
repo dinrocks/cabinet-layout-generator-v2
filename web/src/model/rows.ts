@@ -4,7 +4,7 @@
  * plate and lets you edit it; editing shifts the duct below (and everything below
  * it) so the other rows keep their size and the plate grows/shrinks at that row.
  */
-import type { LayoutModel, Duct, Library } from "./types";
+import type { LayoutModel, Duct, Library, Element } from "./types";
 import { rotatedFootprint } from "./geometry";
 import { libItemSize } from "./resolve";
 import { railOffsetWithinFootprint } from "./align";
@@ -148,6 +148,20 @@ interface RowDev {
   curX: number;       // current x (for ordering)
 }
 
+/**
+ * A label plate locked onto a stopper (shares a `pair_id`, its lib item is a
+ * `label_plate`) is NOT an independent device — it's coincident with and rides
+ * along with its pair-mate. Row packing / centring must skip it as a slot and
+ * instead move it by the same delta as its primary, so the locked pair stays
+ * coincident (the same rule the drag/rotate handlers use in edit.ts). Without
+ * this, Pack flows the label into its own slot beside the stopper.
+ */
+function isPairFollower(el: Element, library: Library): boolean {
+  if (!el.pair_id) return false;
+  const item = library[el.lib_key];
+  return !!item && item.source === "rect" && item.label_plate === true;
+}
+
 /** Left inner edge (right of the left side duct) and right limit (left of the right side duct). */
 function rowEdges(model: LayoutModel): { leftEdge: number; rightLimit: number } {
   const verts = model.ducts.filter((d) => d.rot_deg % 180 !== 0);
@@ -163,6 +177,7 @@ function rowDevices(model: LayoutModel, library: Library, row: Row): RowDev[] {
   const out: RowDev[] = [];
   const inBand = (y: number, h: number) => y + h / 2 >= row.topY && y + h / 2 <= row.bottomY;
   for (const e of model.elements) {
+    if (isPairFollower(e, library)) continue; // rides with its pair-mate, not its own slot
     const item = library[e.lib_key];
     if (!item) continue;
     const f = rotatedFootprint(libItemSize(item), e.rot_deg);
@@ -222,10 +237,23 @@ export function packRow(model: LayoutModel, library: Library, rowIndex: number):
     x += d.w;
   });
 
+  // a label plate locked to a packed stopper follows it by the same delta, so the
+  // pair stays coincident (matches the drag handler in edit.ts) — never its own slot.
+  const pairDelta: Record<string, { dx: number; dy: number }> = {};
+  for (const e of model.elements) {
+    if (e.id in nx && e.pair_id) {
+      pairDelta[e.pair_id] = { dx: +(nx[e.id] - e.x_mm).toFixed(2), dy: +(ny[e.id] - e.y_mm).toFixed(2) };
+    }
+  }
+
   return {
     model: {
       ...model,
-      elements: model.elements.map((e) => (e.id in nx ? { ...e, x_mm: nx[e.id], y_mm: ny[e.id] } : e)),
+      elements: model.elements.map((e) => {
+        if (e.id in nx) return { ...e, x_mm: nx[e.id], y_mm: ny[e.id] };
+        const d = e.pair_id ? pairDelta[e.pair_id] : undefined;
+        return d ? { ...e, x_mm: +(e.x_mm + d.dx).toFixed(2), y_mm: +(e.y_mm + d.dy).toFixed(2) } : e;
+      }),
       groups: model.groups.map((g) => (g.id in nx ? { ...g, x_mm: nx[g.id], y_mm: ny[g.id] } : g)),
     },
     overflowMm: +Math.max(0, x - rightLimit).toFixed(1),
@@ -245,13 +273,28 @@ export function centerRowDevices(model: LayoutModel, library: Library, rowIndex:
     const c = y + h / 2;
     return c >= row.topY && c <= row.bottomY;
   };
+
+  // new Y for each independent in-band element (skip pair-followers — they ride along)
+  const ny: Record<string, number> = {};
+  for (const e of model.elements) {
+    if (isPairFollower(e, library)) continue;
+    const item = library[e.lib_key];
+    if (!item) continue;
+    const f = rotatedFootprint(libItemSize(item), e.rot_deg);
+    if (inBand(e.y_mm, f.h)) ny[e.id] = +(rowCenter - railOffsetWithinFootprint(item, e.rot_deg)).toFixed(2);
+  }
+  // a locked label plate follows its centred pair-mate by the same dy (stays coincident)
+  const pairDy: Record<string, number> = {};
+  for (const e of model.elements) {
+    if (e.id in ny && e.pair_id) pairDy[e.pair_id] = +(ny[e.id] - e.y_mm).toFixed(2);
+  }
+
   return {
     ...model,
     elements: model.elements.map((e) => {
-      const item = library[e.lib_key];
-      if (!item) return e;
-      const f = rotatedFootprint(libItemSize(item), e.rot_deg);
-      return inBand(e.y_mm, f.h) ? { ...e, y_mm: +(rowCenter - railOffsetWithinFootprint(item, e.rot_deg)).toFixed(2) } : e;
+      if (e.id in ny) return { ...e, y_mm: ny[e.id] };
+      const dy = e.pair_id ? pairDy[e.pair_id] : undefined;
+      return dy !== undefined ? { ...e, y_mm: +(e.y_mm + dy).toFixed(2) } : e;
     }),
     groups: model.groups.map((g) => {
       const item = library[g.lib_key];

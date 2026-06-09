@@ -43,6 +43,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Label faces the other way** — the marker text is rotated 180° from before (now `rot + 90`) in the
   editor, SVG/PDF/PNG and DXF, so all paths agree.
 - **Sidebar tooltip** shows the part **name** (plus its size) when hovering a library part.
+- **Pack / centre keep a label plate locked to its stopper** — a row's auto-pack (and the ↕ centre,
+  and overflow counting) no longer treats a coincident label plate as its own device, so it stays on
+  top of its stopper instead of sliding into a separate slot beside it.
 
 _Next slices: audit log + "opened by" presence; finish the Cloudflare move._
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { detectRows, setRowHeight, centerRowDevices, packRow, rowOverflowMm } from "./rows";
 import { addElement } from "./edit";
 import { SEED_LIBRARY } from "./library";
-import type { LayoutModel } from "./types";
+import type { LayoutModel, Element, Library } from "./types";
 
 /** Tall plate with two horizontal ducts (40 thick) framing one row. */
 function modelWithTwoDucts(): LayoutModel {
@@ -134,5 +134,49 @@ describe("centerRowDevices", () => {
     // newY = rowCentre(270) - railOffset(40) = 230 -> device centre 230+40 = 270
     expect(m2.elements.find((e) => e.id === inRow.id)!.y_mm).toBe(230);
     expect(m2.elements.find((e) => e.id === below.id)!.y_mm).toBe(600); // untouched
+  });
+});
+
+describe("a locked stopper+label pair survives Pack / centre", () => {
+  // regression: a label plate (coincident, same pair_id) must NOT be flowed into
+  // its own slot beside the stopper — it rides along, staying coincident.
+  const LIB: Library = {
+    stop: { lib_key: "stop", name: "Stopper", source: "rect", width_mm: 8, height_mm: 35 },
+    lbl1: { lib_key: "lbl1", name: "", source: "rect", width_mm: 8, height_mm: 35, label_plate: true },
+  };
+  function pairModel(): LayoutModel {
+    const m = modelWithTwoDucts();
+    const withRight: LayoutModel = {
+      ...m,
+      ducts: [...m.ducts, { id: "R", x_mm: 740, y_mm: 0, length_mm: 1000, width_mm: 60, label_h_mm: 60, rot_deg: 90 }],
+    };
+    const stopper: Element = {
+      id: "stp", lib_key: "stop", tag: "", x_mm: 300, y_mm: 200, rot_deg: 0,
+      gap_before_mm: 0.1, clearance_to_duct_mm: 3, group_id: null, pair_id: "pr1", locked: false,
+    };
+    const label: Element = { ...stopper, id: "lbl", lib_key: "lbl1", tag: "X1" }; // coincident
+    return { ...withRight, elements: [stopper, label] };
+  }
+
+  it("Pack gives the stopper one slot and the label rides along (coincident)", () => {
+    const { model: m2 } = packRow(pairModel(), LIB, 0);
+    const stp = m2.elements.find((e) => e.id === "stp")!;
+    const lbl = m2.elements.find((e) => e.id === "lbl")!;
+    expect(stp.x_mm).toBeCloseTo(63);   // leftEdge 60 + clearance 3 — a single slot
+    expect(lbl.x_mm).toBe(stp.x_mm);     // label stays on top of the stopper
+    expect(lbl.y_mm).toBe(stp.y_mm);
+  });
+
+  it("centre keeps the pair coincident", () => {
+    const m2 = centerRowDevices(pairModel(), LIB, 0);
+    const stp = m2.elements.find((e) => e.id === "stp")!;
+    const lbl = m2.elements.find((e) => e.id === "lbl")!;
+    expect(lbl.x_mm).toBe(stp.x_mm);
+    expect(lbl.y_mm).toBe(stp.y_mm);
+  });
+
+  it("overflow counts the pair once (not the label as a second device)", () => {
+    // one 8mm-wide stopper + its label in a ~680mm row never overflows
+    expect(rowOverflowMm(pairModel(), LIB, 0)).toBe(0);
   });
 });
