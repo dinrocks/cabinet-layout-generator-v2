@@ -17,6 +17,12 @@ except ImportError:  # pragma: no cover - dependency missing only in a broken en
     jwt = None  # type: ignore[assignment]
 
 
+def auth_enabled() -> bool:
+    """True when JWT enforcement is configured. Safe to expose (a boolean) so
+    /health can confirm the deployed config without leaking the secret."""
+    return bool(os.environ.get("SUPABASE_JWT_SECRET"))
+
+
 def require_user(authorization: str | None = Header(default=None)) -> str | None:
     """Return the user id (`sub`) from a valid Supabase JWT, or None when auth is
     not configured. Raises 401 when configured but the token is missing/invalid."""

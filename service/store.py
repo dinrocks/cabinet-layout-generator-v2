@@ -22,6 +22,18 @@ _BUCKET = os.environ.get("SUPABASE_BUCKET", "equipment")
 _STORAGE = bool(_URL and _KEY)  # Storage-backed when both are set; else local-only
 
 
+class BlockNotFoundError(Exception):
+    """An uploaded block id is in neither the local cache nor Supabase Storage —
+    typically because it was uploaded before Storage backing was live and the
+    container's local cache was since wiped. The part must be re-uploaded."""
+
+
+def storage_enabled() -> bool:
+    """True when Supabase Storage backing is configured (durable blocks). Safe to
+    expose (a boolean, no secrets) so /health can confirm the deployed config."""
+    return _STORAGE
+
+
 def _obj_url(block_id: str) -> str:
     return f"{_URL}/storage/v1/object/{_BUCKET}/{block_id}.dxf"
 
@@ -61,7 +73,7 @@ def path(block_id: str) -> Path:
         if r.status_code == 200:
             p.write_bytes(r.content)
             return p
-    raise KeyError(f"block '{block_id}' not in store")
+    raise BlockNotFoundError(f"block '{block_id}' not in store")
 
 
 def exists(block_id: str) -> bool:

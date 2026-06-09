@@ -19,7 +19,8 @@ from pydantic import BaseModel
 
 import dxf_build
 import dxf_upload
-from auth import require_user
+import store
+from auth import require_user, auth_enabled
 
 app = FastAPI(title="Cabinet Layout — ezdxf service", version="0.1.0")
 
@@ -38,8 +39,16 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "ezdxf": ezdxf.__version__}
+def health() -> dict[str, Any]:
+    # `storage`/`auth` are booleans only (no secrets) so the deployed config can be
+    # confirmed at a glance: storage=false means uploaded blocks WON'T survive a
+    # restart (Supabase Storage env not set) — the usual cause of a missing-block export.
+    return {
+        "status": "ok",
+        "ezdxf": ezdxf.__version__,
+        "storage": store.storage_enabled(),
+        "auth": auth_enabled(),
+    }
 
 
 @app.post("/upload")
@@ -77,6 +86,15 @@ def export(req: ExportRequest, _user: str | None = Depends(require_user)) -> Res
         buf = io.StringIO()
         doc.write(buf)
         data = buf.getvalue().encode("utf-8")
+    except store.BlockNotFoundError as exc:
+        # an uploaded part's block isn't in storage (uploaded before Storage backing
+        # was live, then the cache was wiped). Tell the user what to do — re-upload it.
+        raise HTTPException(
+            422,
+            f"An uploaded equipment part is missing from storage ({exc}). "
+            "Re-upload that part (its block was stored before durable storage was "
+            "enabled), then export again.",
+        ) from exc
     except Exception as exc:  # return a clean error (CORS-headed), never a raw crash
         raise HTTPException(500, f"DXF assembly failed: {exc}") from exc
     name = _safe_filename(str(req.model.get("project", {}).get("name", "layout")))

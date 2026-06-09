@@ -48,6 +48,19 @@ async function serviceFetch(path: string, init: RequestInit): Promise<Response> 
   }
 }
 
+/** Pull FastAPI's `{ "detail": "…" }` message out, so the user sees the clean text
+ *  (e.g. "re-upload that part") instead of raw JSON. Falls back to the body. */
+async function errorDetail(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  try {
+    const j = JSON.parse(text) as { detail?: unknown };
+    if (typeof j.detail === "string") return j.detail;
+  } catch {
+    /* not JSON — use the raw text */
+  }
+  return text;
+}
+
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -78,8 +91,7 @@ export async function exportDxf(
     body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale] }),
   });
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Export failed (${res.status}). ${detail}`.trim());
+    throw new Error(`Export failed (${res.status}). ${await errorDetail(res)}`.trim());
   }
   const blob = await res.blob();
   const name = (model.project.name || "layout").replace(/\s+/g, "_");
@@ -92,8 +104,7 @@ export async function uploadDxf(file: File): Promise<UploadResult> {
   form.append("file", file);
   const res = await serviceFetch(`/upload`, { method: "POST", body: form, headers: await authHeader() });
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Upload failed (${res.status}). ${detail}`.trim());
+    throw new Error(`Upload failed (${res.status}). ${await errorDetail(res)}`.trim());
   }
   return (await res.json()) as UploadResult;
 }
