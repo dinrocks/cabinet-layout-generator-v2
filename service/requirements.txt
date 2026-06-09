@@ -4,4 +4,5 @@ uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 Pillow==12.2.0
 PyJWT==2.10.1
+cryptography==44.0.0  # RS256/ES256 verification for Supabase's asymmetric JWT signing keys
 httpx==0.28.1

@@ -47,4 +47,22 @@ _expect_401(f"Bearer {_token(aud='other')}")       # wrong audience
 _expect_401(f"Bearer {_token(exp_delta=-10)}")     # expired
 print("OK: 401 on missing / malformed / wrong-aud / expired")
 
+
+def _detail(authorization) -> str:
+    try:
+        auth.require_user(authorization)
+    except HTTPException as e:
+        return e.detail
+    raise AssertionError("expected 401")
+
+
+# a token signed with the WRONG secret -> specific "signature mismatch" message
+# (this is the most common real-world cause: SUPABASE_JWT_SECRET set to a wrong value)
+_bad = jwt.encode(
+    {"sub": "u", "aud": "authenticated", "exp": int(time.time()) + 3600},
+    "a-different-secret", algorithm="HS256",
+)
+assert "signature" in _detail(f"Bearer {_bad}").lower()
+print("OK: wrong secret -> 'signature mismatch' (diagnosable)")
+
 print("ALL AUTH ASSERTIONS PASSED")
