@@ -96,7 +96,19 @@
   border: 1px solid #2f6fed; background: #2f6fed; color: #fff;
 }
 .modal-actions button.danger { background: #fff; color: #c00; border-color: #c00; }
+.modal-actions button.ghost { background: #fff; color: #2f6fed; }
 .modal-actions button:disabled { opacity: 0.5; cursor: default; }
+
+/* BOM (bill of materials) modal */
+.bom-modal { width: 560px; max-height: 80vh; overflow: auto; }
+.bom-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 2px; }
+.bom-table th, .bom-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eee; }
+.bom-table thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #6b7280; border-bottom: 1px solid #d6d6d6; }
+.bom-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.bom-table tfoot td { font-weight: 600; border-top: 2px solid #d6d6d6; border-bottom: none; }
+.bom-est { color: #9a6700; font-weight: 700; }
+.bom-note { font-size: 11px; color: #9aa3af; margin: 6px 0 0; }
+.bom-empty { font-size: 13px; color: #6b7280; margin: 8px 0; }
 
 /* canvas stage — Fabric fills it; zoom/pan happen inside the canvas */
 .stage { grid-area: stage; overflow: hidden; background: #e9ecef; }

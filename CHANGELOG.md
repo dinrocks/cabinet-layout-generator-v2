@@ -48,7 +48,15 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   and overflow counting) no longer treats a coincident label plate as its own device, so it stays on
   top of its stopper instead of sliding into a separate slot beside it.
 
-_Next slices: audit log + "opened by" presence; finish the Cloudflare move._
+### Added — BOM (Bill of Materials)
+- **BOM toolbar button** opens a parts count from the current layout: every placed element counts 1, a
+  set of N counts N, aggregated by part and grouped by category. Locked stopper+label pairs tally as the
+  stopper plus one collapsed **"Label for stopper"** line; unconfirmed-estimate parts are flagged (`*`).
+- **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
+  core (`model/bom.ts`) is unit-tested, no AI, nothing invented (CLAUDE.md §0/§5).
+
+_Roadmap (deferred, see [ROADMAP.md](ROADMAP.md)): multi-user safety (last-saved-by + overwrite guard),
+audit log, harden + custom domain, Phase 3 share-link + bundle._
 
 ## [0.2.0] — 2026-06-06
 

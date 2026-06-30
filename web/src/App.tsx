@@ -19,6 +19,7 @@ import { useHistory } from "./editor/useHistory";
 import FabricStage, { type Selection } from "./editor/FabricStage";
 import { clampZoom } from "./editor/zoom";
 import UploadModal from "./editor/UploadModal";
+import BomModal from "./editor/BomModal";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
@@ -152,6 +153,7 @@ export default function App() {
 
   // live ezdxf-service availability (DXF upload/export need it; PDF/PNG/SVG don't)
   const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
+  const [showBom, setShowBom] = useState(false);
   const checkSvc = async () => {
     setSvc((s) => (s === "online" ? s : "checking"));
     setSvc((await ping()) ? "online" : "offline");
@@ -447,6 +449,9 @@ export default function App() {
             <button type="button" className="ghost" disabled={busy} onClick={() => run("PNG", () => downloadPng(model, library, paper))}>PNG</button>
             <button type="button" className="ghost" disabled={busy} onClick={() => run("SVG", () => downloadSvg(model, library))}>SVG</button>
           </span>
+          <span className="group">
+            <button type="button" className="ghost" title="Bill of Materials — count placed parts by category, export CSV" onClick={() => setShowBom(true)}>BOM</button>
+          </span>
           {status.kind === "busy" && <span className="status">… {status.label}</span>}
           {status.kind === "done" && <span className="status ok">✓ {status.label}</span>}
           {status.kind === "error" && <span className="status err" title={status.message}>✗ {status.message}</span>}
@@ -672,6 +677,8 @@ export default function App() {
         <UploadModal result={upload.result} defaultName={upload.name} canShare={ready}
           onConfirm={confirmUpload} onCancel={() => setUpload({ status: "idle" })} />
       )}
+
+      {showBom && <BomModal model={model} library={library} onClose={() => setShowBom(false)} />}
 
       {rowEdit && (
         <input className="rowedit" type="number" autoFocus defaultValue={rowEdit.value}
