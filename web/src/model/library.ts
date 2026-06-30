@@ -54,6 +54,7 @@ export const BANDS = [
   { band: 5, name: "Ground bar" },
   { band: 6, name: "Stopper" },
   { band: 7, name: "Slim Stopper" },
+  { band: 8, name: "Accessories" }, // catch-all for misc parts (glands, brackets, markers…)
 ] as const;
 
 /** Categories whose parts behave as stoppers (get the "Add label plate" pairing; BOM type tag). */
