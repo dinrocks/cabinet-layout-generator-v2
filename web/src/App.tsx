@@ -18,7 +18,7 @@ import {
 import { useHistory } from "./editor/useHistory";
 import FabricStage, { type Selection } from "./editor/FabricStage";
 import { clampZoom } from "./editor/zoom";
-import UploadModal from "./editor/UploadModal";
+import UploadModal, { type BomMeta } from "./editor/UploadModal";
 import BomModal from "./editor/BomModal";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
@@ -176,6 +176,8 @@ export default function App() {
   const multi = selections.length > 1;
   const selectedIds = useMemo(() => selections.map((s) => s.id), [selections]);
   const selEl = single?.kind === "element" ? model.elements.find((e) => e.id === single.id) ?? null : null;
+  const selItem = selEl ? library[selEl.lib_key] : undefined;
+  const selIsLabel = selItem?.source === "rect" && selItem.label_plate === true;
   const selDuct = single?.kind === "duct" ? model.ducts.find((d) => d.id === single.id) ?? null : null;
   const selGroup = single?.kind === "group" ? model.groups.find((g) => g.id === single.id) ?? null : null;
   const selLabel = single?.kind === "label" ? model.labels.find((l) => l.id === single.id) ?? null : null;
@@ -327,6 +329,17 @@ export default function App() {
     }
   }
 
+  /** Edit a part's BOM fields (manufacturer/model/description). Updates the local
+   *  library immediately; if the part is shared, persists to the catalog (admin RLS). */
+  async function setLibBomField(libKey: string, patch: { manufacturer?: string; model?: string; description?: string }) {
+    setLibrary((l) => ({ ...l, [libKey]: { ...l[libKey], ...patch } }));
+    if (sharedLib[libKey]) {
+      setSharedLib((s) => ({ ...s, [libKey]: { ...s[libKey], ...patch } }));
+      if (!(await updateLibraryItem(libKey, patch)))
+        setStatus({ kind: "error", message: "Saved locally, but the shared-library update was rejected (admin only)." });
+    }
+  }
+
   /** Remove a part from the library (and the shared catalog if shared — admin RLS). */
   async function deleteLibraryPart(libKey: string) {
     const inUse = model.elements.some((e) => e.lib_key === libKey) || model.groups.some((g) => g.lib_key === libKey);
@@ -366,11 +379,14 @@ export default function App() {
       setUpload({ status: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }
-  async function confirmUpload(name: string, shared: boolean, band: number) {
+  async function confirmUpload(name: string, shared: boolean, band: number, meta: BomMeta) {
     if (upload.status !== "confirm") return;
     const key = `up_${Date.now().toString(36)}`;
     const item: DxfLibItem = {
       lib_key: key, name, source: "dxf", band,
+      ...(meta.manufacturer ? { manufacturer: meta.manufacturer } : {}),
+      ...(meta.model ? { model: meta.model } : {}),
+      ...(meta.description ? { description: meta.description } : {}),
       width_mm: upload.result.width_mm, height_mm: upload.result.height_mm,
       block_ref: upload.result.block_ref, svg_ref: upload.result.svg,
     };
@@ -582,6 +598,14 @@ export default function App() {
               value={library[selEl.lib_key]?.rail_offset_mm ?? ((library[selEl.lib_key]?.height_mm ?? 0) / 2)}
               onChange={(v) => setLibrary((l) => ({ ...l, [selEl.lib_key]: { ...l[selEl.lib_key], rail_offset_mm: v } }))} />
             <Row label="Rotation"><span className="ro">{selEl.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
+            {selItem && !selIsLabel && (
+              <>
+                <p className="bom-fields-head">BOM details <span>(shown in the Bill of Materials)</span></p>
+                <Field label="Manufacturer" value={selItem.manufacturer ?? ""} onChange={(v) => setLibBomField(selEl.lib_key, { manufacturer: v })} />
+                <Field label="Model" value={selItem.model ?? ""} onChange={(v) => setLibBomField(selEl.lib_key, { model: v })} />
+                <Field label="Description" value={selItem.description ?? ""} onChange={(v) => setLibBomField(selEl.lib_key, { description: v })} />
+              </>
+            )}
             <div className="panel-actions">
               {STOPPER_BANDS.has(library[selEl.lib_key]?.band ?? -1) && (
                 <button type="button" title="Drop a same-size label plate on this stopper (locked pair)" onClick={addLabelPlate}>Add label plate</button>

@@ -117,12 +117,18 @@ create table if not exists public.library_items (
   block_ref      text not null,                -- Storage object id (<block_ref>.dxf)
   svg_ref        text,                         -- inline SVG for the editor view
   rail_offset_mm double precision,
-  band           int,                          -- category (1..7); also the future BOM type
+  band           int,                          -- category (1..8); also the future BOM type
+  manufacturer   text,                         -- BOM: orderable identity (human-entered)
+  model          text,                         -- BOM: manufacturer model / part number
+  description    text,                         -- BOM: long spec line (falls back to name)
   created_by     uuid references public.profiles (id),
   created_at     timestamptz not null default now()
 );
--- for projects created before `band` existed (idempotent):
+-- for projects created before these columns existed (idempotent):
 alter table public.library_items add column if not exists band int;
+alter table public.library_items add column if not exists manufacturer text;
+alter table public.library_items add column if not exists model text;
+alter table public.library_items add column if not exists description text;
 
 alter table public.library_items enable row level security;
 

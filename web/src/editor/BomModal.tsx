@@ -5,7 +5,9 @@
  */
 import { useMemo } from "react";
 import type { LayoutModel, Library } from "../model/types";
-import { buildBom, bomToCsv } from "../model/bom";
+import { buildBom, bomToCsv, itemNo } from "../model/bom";
+
+const dash = (s: string) => (s && s.trim() ? s : "-");
 
 interface Props {
   model: LayoutModel;
@@ -38,28 +40,34 @@ export default function BomModal({ model, library, onClose }: Props) {
         ) : (
           <table className="bom-table">
             <thead>
-              <tr><th>Category</th><th>Part</th><th className="num">Qty</th><th className="num">Size (mm)</th></tr>
+              <tr>
+                <th>Item No.</th><th>Description</th><th>Manufacturer</th><th>Model</th><th className="num">Qty</th>
+              </tr>
             </thead>
             <tbody>
               {bom.rows.map((r) => (
                 <tr key={r.key}>
-                  <td>{r.category}</td>
+                  <td className="bom-itemno">{itemNo(r)}</td>
                   <td>
-                    {r.name}
+                    {dash(r.description)}
                     {r.confirm && <span className="bom-est" title="Unconfirmed size estimate — verify against datasheet"> *</span>}
                   </td>
+                  <td>{dash(r.manufacturer)}</td>
+                  <td>{dash(r.model)}</td>
                   <td className="num">{r.qty}</td>
-                  <td className="num">{r.width_mm} × {r.height_mm}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr><td colSpan={2}>Total parts</td><td className="num">{bom.totalParts}</td><td /></tr>
+              <tr><td colSpan={4}>Total parts</td><td className="num">{bom.totalParts}</td></tr>
             </tfoot>
           </table>
         )}
 
-        <p className="bom-note">* unconfirmed size estimate — verify against the datasheet before ordering.</p>
+        <p className="bom-note">
+          ITEM NO. lists each part's equipment tags. "-" = not entered (add Manufacturer/Model/Description on the
+          part). * = unconfirmed size estimate — verify against the datasheet before ordering.
+        </p>
 
         <div className="modal-actions">
           <button type="button" className="ghost" onClick={onClose}>Close</button>

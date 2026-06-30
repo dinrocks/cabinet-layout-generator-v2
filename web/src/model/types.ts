@@ -119,8 +119,16 @@ export interface LayoutModel {
 /** Common fields for every library entry. */
 interface LibItemBase {
   lib_key: string;
-  /** Display name (for sidebar + BOM). */
+  /** Short display name (sidebar label + BOM fallback description). */
   name: string;
+  /**
+   * BOM part data (Ref 05 shop-drawing BOM columns). Human-entered, NEVER invented
+   * (CLAUDE.md §0) — absent values render as "-". `description` is the long spec
+   * line (falls back to `name`); `manufacturer`/`model` are the orderable identity.
+   */
+  manufacturer?: string;
+  model?: string;
+  description?: string;
   /** Functional band 1..6 (Ref 05 §5), used by optional auto-pack. */
   band?: number;
   /** True while a dimension is an unconfirmed estimate (Ref 05 §9). */

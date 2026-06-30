@@ -49,11 +49,16 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   top of its stopper instead of sliding into a separate slot beside it.
 
 ### Added — BOM (Bill of Materials)
-- **BOM toolbar button** opens a parts count from the current layout: every placed element counts 1, a
-  set of N counts N, aggregated by part and grouped by category. Locked stopper+label pairs tally as the
-  stopper plus one collapsed **"Label for stopper"** line; unconfirmed-estimate parts are flagged (`*`).
+- **BOM toolbar button** opens a parts list shaped to the shop-drawing BOM —
+  **ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY**. Every placed element counts 1,
+  a set of N counts N (its auto-tags B101… expand into ITEM NO.), aggregated by part. Locked stopper+label
+  pairs tally as the stopper plus one collapsed **"Label for stopper"** line; unconfirmed sizes flagged (`*`).
+- **Per-part BOM data** — `manufacturer` / `model` / `description` are entered in the upload dialog and
+  editable later on a selected part (the panel's "BOM details"). Human-entered, never invented (CLAUDE.md
+  §0); unentered fields show **"-"**. Shared parts persist them in `library_items` (re-run `supabase/schema.sql`
+  once to add the columns).
 - **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
-  core (`model/bom.ts`) is unit-tested, no AI, nothing invented (CLAUDE.md §0/§5).
+  core (`model/bom.ts`) is unit-tested, no AI (CLAUDE.md §0/§5).
 
 _Roadmap (deferred, see [ROADMAP.md](ROADMAP.md)): multi-user safety (last-saved-by + overwrite guard),
 audit log, harden + custom domain, Phase 3 share-link + bundle._
