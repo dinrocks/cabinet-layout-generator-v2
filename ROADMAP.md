@@ -18,18 +18,18 @@ invents geometry or part data.
 
 ## Now / In progress
 
-### BOM (Bill of Materials) export  ← current focus
-Generate an orderable parts list from a layout — the deterministic payoff of the named-block +
-category work.
-- **Count** every placed element and set-member by `lib_key`; a set of N counts as N.
-- **Group by category** (BANDS). Stopper / Slim-Stopper categories are the BOM "type" tag
-  ("tag now, total later"); a locked stopper+label pair tallies as **1 stopper + 1 label**
-  (distinct `lib_key`s, already distinct blocks).
-- Include `confirm:true` flag (unconfirmed estimate) per row so the reviewer sees what's not
-  datasheet-verified.
-- **Pure, testable core** (`model/bom.ts`) → aggregation function with unit tests, no UI/Fabric
-  dependency (CLAUDE.md §5). UI panel + **CSV download** on top; printable table later.
-- Optionally fold in `BOM_ONLY_ACCESSORIES` (zero-geometry items that must appear in a BOM).
+### BOM (Bill of Materials) export
+**Device rows — DONE** (shop-drawing format, matched to the engineer's real BOM):
+ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY. Pure tested core
+(`model/bom.ts`), per-part data entered at upload + editable in the panel, CSV download.
+
+**Next (this feature's remaining piece): manual BOM-only rows.** The real sheet also lists items
+that aren't placed on the back-plate — the **cabinet** (e.g. "RTU CABINET STEEL SHEET W800×H2000×D500"),
+**name plates**, **lamp/fluorescent**, **fans**, **outlets**. Add a project-level editable list of
+BOM-only line items (ITEM NO. / description / manufacturer / model / qty) that merge into the BOM and
+CSV. Generalises the existing `BOM_ONLY_ACCESSORIES` idea.
+- Likely a `project.bom_extras[]` on the model + a small editor in the BOM modal.
+- Optional polish: collapse long set tag lists to a range ("B101–B112"); printable/PDF BOM.
 
 ## Backlog (deferred, in rough priority order)
 
