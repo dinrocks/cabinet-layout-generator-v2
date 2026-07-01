@@ -39,6 +39,14 @@ LAYERS = {
 }
 TEXT_STYLE = "ARIAL"
 
+# Part-tag text heights (mm) — small + horizontal, matching the shop drawings. Fixed
+# per category; the Terminal-blocks category is smaller so a 2-digit number fits
+# centered over a ~5mm terminal. MUST match web/src/render/toSvg.ts.
+TAG_FONT_MM = 3.5
+TAG_FONT_TERMINAL_MM = 2.5
+TERMINAL_BAND = 4  # BANDS: 4 = "Terminal blocks"
+TAG_GAP_MM = 2.5
+
 
 def _num(v: object) -> str:
     """Format a dimension without a trailing '.0' (e.g. 40.0 -> '40')."""
@@ -265,13 +273,12 @@ class DxfAssembler:
                 self._text(tag, x + fw / 2, y_top + fh / 2,
                            min(6.0, 0.6 * w), rot_deg=(rot + 90) % 360)
             else:
-                # top-left of the part, 2.5mm above; rotate if wider than the part
-                bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
-                tag_h, gap = 10.0, 2.5
-                if len(tag) * tag_h * 0.62 <= fw:
-                    self._text(tag, x, y_top - gap, tag_h, align=bl)
-                else:
-                    self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
+                # centered just above the part; small category font (Terminal blocks
+                # smaller so 2 digits fit), shrunk to fit if it'd overflow. Never rotated.
+                cap = TAG_FONT_TERMINAL_MM if item.get("band") == TERMINAL_BAND else TAG_FONT_MM
+                tag_h = max(1.5, min(cap, (0.92 * fw) / (max(1, len(tag)) * 0.62)))
+                bc = ezdxf.enums.TextEntityAlignment.BOTTOM_CENTER
+                self._text(tag, x + fw / 2, y_top - TAG_GAP_MM, tag_h, align=bc)
         # custom placeholder: model / part-no centered inside, auto-fit to the box
         name = item.get("name")
         if item.get("custom") and name:

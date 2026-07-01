@@ -41,24 +41,33 @@ export function fitFontSize(text: string, w: number, h: number): number {
   return Math.max(2.5, Math.min(byWidth, 0.45 * h, 10));
 }
 
-/** Rough Arial width of a tag, for the overflow→rotate decision. */
-export const TAG_FONT_MM = 10;
+/**
+ * Part-tag text heights (mm), matching the engineer's shop drawings — small and
+ * horizontal, NOT the old oversized/rotated tag. Fixed per category: the default
+ * suits relays/devices; the Terminal-blocks category is smaller so a 2-digit number
+ * (e.g. "12") fits centered over a ~5 mm terminal without touching its neighbour.
+ * Kept in sync with dxf_build.py + FabricStage.tsx (the three renderers must agree).
+ */
+export const TAG_FONT_MM = 3.5;
+export const TAG_FONT_TERMINAL_MM = 2.5;
+export const TERMINAL_BAND = 4; // BANDS: 4 = "Terminal blocks"
 export const TAG_GAP_MM = 2.5;
-const estTagWidth = (text: string, h = TAG_FONT_MM) => text.length * h * 0.62;
+
+/** The tag height cap for a part, by its library category (band). */
+export function tagFontMm(band: number | undefined): number {
+  return band === TERMINAL_BAND ? TAG_FONT_TERMINAL_MM : TAG_FONT_MM;
+}
 
 /**
- * A part tag at the part's top-left, sitting TAG_GAP_MM above the part. If it
- * would be wider than the part it's rotated to read bottom-to-top (e.g. F01 on a
- * narrow fuse holder). (engineer's as-built convention)
+ * A part tag centered just above the part. Height is the category cap, shrunk to
+ * fit the part width if the tag would otherwise overflow (so it never overlaps a
+ * neighbour). Horizontal — the tag no longer rotates.
  */
-function partTag(text: string, px: number, py: number, fw: number): string {
-  const h = TAG_FONT_MM;
-  if (estTagWidth(text) <= fw) {
-    return `<text x="${px}" y="${py - TAG_GAP_MM}" font-size="${h}" text-anchor="start">${esc(text)}</text>`;
-  }
-  const ax = px + h * 0.75;
-  const ay = py - TAG_GAP_MM;
-  return `<text x="${ax}" y="${ay}" font-size="${h}" text-anchor="start" transform="rotate(-90 ${ax} ${ay})">${esc(text)}</text>`;
+function partTag(text: string, px: number, py: number, fw: number, capMm: number): string {
+  const fit = (0.92 * fw) / (Math.max(1, text.length) * 0.62);
+  const h = Math.max(1.5, Math.min(capMm, fit));
+  const cx = px + fw / 2;
+  return `<text x="${cx}" y="${py - TAG_GAP_MM}" font-size="${h}" text-anchor="middle">${esc(text)}</text>`;
 }
 
 function renderElement(el: Element, library: Library): string {
@@ -77,8 +86,8 @@ function renderElement(el: Element, library: Library): string {
       : "";
     return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
   }
-  // tag above the part ("in plain sight")
-  const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w) : "";
+  // tag above the part ("in plain sight"), small + centered by category
+  const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w, tagFontMm(item.band)) : "";
   // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
   const center = item.source === "rect" && item.custom && item.name
     ? tagText(item.name, el.x_mm + f.w / 2, el.y_mm + f.h / 2, 0, fitFontSize(item.name, f.w, f.h))

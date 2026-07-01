@@ -26,6 +26,13 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Secured service** — `/upload` and `/export` validate the Supabase JWT when `SUPABASE_JWT_SECRET` is
   set (open in local dev). The frontend sends the bearer token.
 
+### Changed — part tags match the shop drawings
+- **Smaller, centered, horizontal part tags.** Tags were a fixed 10 mm and rotated 90° when wider than the
+  part (giant vertical `R101`). They're now **3.5 mm** by default and **2.5 mm** for the **Terminal-blocks**
+  category — centered just above each part, never rotated, and shrunk to fit if a tag would overflow a narrow
+  part so it never overlaps a neighbour. Applied identically in the editor, SVG/PDF/PNG, and DXF. (Sizes are
+  constants — easy to tune.)
+
 ### Changed (library reorg — AMR house style)
 - **Empty starting library** — the editor opens on a **blank plate** and the palette categories start
   empty; you build the library by **uploading** parts. (The old seed parts remain only as a test fixture.)

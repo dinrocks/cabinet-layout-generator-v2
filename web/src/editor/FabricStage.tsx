@@ -20,7 +20,7 @@ import { snap, anchorHost, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
-import { contentWidth, fitFontSize } from "../render/toSvg";
+import { contentWidth, fitFontSize, tagFontMm, TAG_GAP_MM } from "../render/toSvg";
 import { clampZoom } from "./zoom";
 
 export interface Selection {
@@ -410,16 +410,14 @@ export default function FabricStage(props: Props) {
           angle: el.rot_deg + 90,
         }));
       } else if (el.tag) {
-        const tagH = 10;
-        const gap = 2.5;
-        const rotated = el.tag.length * tagH * 0.62 > f.w; // wider than part -> rotate
+        // small, centered, horizontal tag by category — shrink to fit if it'd overflow
+        const cap = tagFontMm(item?.band);
+        const tagH = Math.max(1.5, Math.min(cap, (0.92 * f.w) / (Math.max(1, el.tag.length) * 0.62)));
         canvas.add(new FabricText(el.tag, {
           fontSize: tagH, fontFamily: "Arial", fill: "#111",
           selectable: false, evented: false,
-          originX: "left", originY: "bottom",
-          left: rotated ? el.x_mm + tagH * 0.75 : el.x_mm,
-          top: el.y_mm - gap,
-          angle: rotated ? -90 : 0,
+          originX: "center", originY: "bottom",
+          left: el.x_mm + f.w / 2, top: el.y_mm - TAG_GAP_MM,
         }));
       }
       // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
