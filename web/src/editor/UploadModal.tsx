@@ -5,7 +5,7 @@
  * engineer picks a CATEGORY and CONFIRMs before the part joins the library, or
  * Cancels. When signed in, a checkbox offers to add it to the SHARED library.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BANDS } from "../model/library";
 import type { UploadResult } from "../service/dxfClient";
 
@@ -38,9 +38,18 @@ export default function UploadModal({ result, defaultName, canShare, onConfirm, 
     });
   };
 
+  // Esc closes (a deliberate keypress) — but a click outside does NOT, so a mis-click
+  // never discards what you've typed.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal">
         <h3>Confirm uploaded part</h3>
 
         <div className="upload-preview" dangerouslySetInnerHTML={{ __html: result.svg }} />
@@ -77,9 +86,15 @@ export default function UploadModal({ result, defaultName, canShare, onConfirm, 
           <span className="plabel">Model</span>
           <input type="text" value={model} placeholder="e.g. NDR-120-24" onChange={(e) => setModel(e.target.value)} />
         </label>
-        <label className="prow">
+        <label className="prow prow-col">
           <span className="plabel">Description</span>
-          <input type="text" value={description} placeholder="full spec line (defaults to the name)" onChange={(e) => setDescription(e.target.value)} />
+          <textarea className="bom-desc" value={description} rows={2}
+            placeholder="Full spec line — defaults to the name. e.g. MINIATURE CIRCUIT BREAKER PL9X, 2 POLES, 16A, RATED AC 230/400V, RATED BREAKING CAPACITY 6KA"
+            onChange={(e) => {
+              setDescription(e.target.value);
+              e.currentTarget.style.height = "auto";
+              e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 240)}px`;
+            }} />
         </label>
 
         {canShare && (

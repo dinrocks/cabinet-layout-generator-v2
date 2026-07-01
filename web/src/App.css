@@ -113,6 +113,16 @@
 .bom-fields-head { margin: 12px 0 4px; font-size: 12px; font-weight: 600; color: #374151; }
 .bom-fields-head span { font-weight: 400; color: #9aa3af; }
 
+/* full-width stacked field (label above) — used for the long Description textarea */
+.prow.prow-col { display: block; }
+.prow.prow-col .plabel { display: block; margin-bottom: 4px; }
+.bom-desc {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.4;
+  padding: 6px 8px; border: 1px solid #cfd4dc; border-radius: 6px; resize: vertical;
+  min-height: 48px; max-height: 240px; overflow-y: auto;
+}
+.bom-desc:focus { border-color: #2f6fed; outline: none; }
+
 /* canvas stage — Fabric fills it; zoom/pan happen inside the canvas */
 .stage { grid-area: stage; overflow: hidden; background: #e9ecef; }
 .sheet { width: 100%; height: 100%; }
