@@ -17,11 +17,6 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${_uid}`;
 }
 
-/** Round to a grid step (e.g. 1mm when snap is on, 0.1mm for fine). */
-export function snap(value: number, step: number): number {
-  if (step <= 0) return value;
-  return Math.round(value / step) * step;
-}
 
 /** Add a library item as a new element at (x,y) (defaults near plate top-left). */
 export function addElement(

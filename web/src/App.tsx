@@ -42,7 +42,6 @@ export default function App() {
   const { model, set, undo, redo, canUndo, canRedo } = useHistory(newModel("Untitled", "tall_floor"));
   const [library, setLibrary] = useState<Library>(() => ({})); // empty; populated by uploads
   const [selections, setSelections] = useState<Selection[]>([]);
-  const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
   const [alignEnabled, setAlignEnabled] = useState(true); // rail-snap on drag
   const [zoom, setZoom] = useState(0.45); // px per mm (fit-to-view overrides on load)
   const [fitNonce, setFitNonce] = useState(0);
@@ -436,10 +435,6 @@ export default function App() {
             <span className="zoompct" title="Current zoom">{Math.round(zoom * 100)}%</span>
             <button type="button" className="icon" title="Zoom in" onClick={() => setZoom((z) => clampZoom(z * 1.25))}>+</button>
             <button type="button" className="ghost" title="Fit to view" onClick={() => setFitNonce((n) => n + 1)}>Fit</button>
-            <label className="field">
-              <input type="checkbox" checked={snapStep > 0} onChange={(e) => setSnapStep(e.target.checked ? 1 : 0)} />
-              Snap 1mm
-            </label>
             <label className="field" title="Snap a dragged part adjacent to its neighbour with the 0.1mm gap, aligned to the rail centerline">
               <input type="checkbox" checked={alignEnabled} onChange={(e) => setAlignEnabled(e.target.checked)} />
               Align
@@ -561,7 +556,7 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <FabricStage
-            model={model} library={library} zoom={zoom} snapStep={snapStep} alignEnabled={alignEnabled}
+            model={model} library={library} zoom={zoom} alignEnabled={alignEnabled}
             fitNonce={fitNonce} overlapIds={overlapIds} tightIds={tightIds}
             selectedIds={selectedIds}
             onSelectEntity={selectEntity}

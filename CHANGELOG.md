@@ -11,8 +11,11 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 ### Changed — top-bar tidy-up
 - **Project name reads as an editable field** — it's now a bordered box with a ✎ pencil and an
   "Untitled project" placeholder, instead of looking like static grey text.
-- **Toolbar regrouped by purpose** — File · History · View (zoom + Snap + Align) · Export (DXF /
+- **Toolbar regrouped by purpose** — File · History · View (zoom + Align) · Export (DXF /
   PDF-PNG-SVG-BOM) · and Help + status + account pushed to the far right. Same buttons, clearer order.
+- **Removed "Snap 1mm"** — a coarse whole-mm drag grid that was off by default and superseded by **Align**
+  (adjacent + rail snap), typed X/Y, and 1 mm arrow-nudge. Dropped to declutter (and it fought the 0.1 mm
+  gap precision). Positioning is unchanged via those three.
 
 ### Added (Slice 1 — auth + cloud-saved projects)
 - **Supabase auth** with an **email allowlist** (RLS-enforced): sign in with GitHub/Google; only

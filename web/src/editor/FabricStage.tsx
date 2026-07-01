@@ -16,7 +16,7 @@ import { Canvas, Rect, Textbox, FabricText, Line, loadSVGFromString, util, type 
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
-import { snap, anchorHost, stepTag, type EntityKind } from "../model/edit";
+import { anchorHost, stepTag, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
@@ -32,7 +32,6 @@ interface Props {
   model: LayoutModel;
   library: Library;
   zoom: number; // px per mm
-  snapStep: number; // 0 = off
   /** When on, dragging a part near another snaps it adjacent + rail-aligned. */
   alignEnabled: boolean;
   /** Currently-selected entity ids (one => editable; many => multi-select). */
@@ -225,8 +224,6 @@ export default function FabricStage(props: Props) {
           return;
         }
       }
-      const step = ref.current.snapStep;
-      if (step > 0) t.set({ left: snap(t.left ?? 0, step), top: snap(t.top ?? 0, step) });
       if (meta?.kind === "element") movePairLive(t, meta.id);
     });
     canvas.on("object:modified", (e) => {

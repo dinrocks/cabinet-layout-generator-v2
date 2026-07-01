@@ -1,17 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { addElement, moveEntity, setRotation, deleteEntity, updateElement, snap,
+import { addElement, moveEntity, setRotation, deleteEntity, updateElement,
   stepTag, addSet, explodeGroup, addLabel, snapDuctThickness, ductDimsFromBox } from "./edit";
 import { newModel } from "./factory";
 import { SEED_LIBRARY } from "./library";
-
-describe("snap", () => {
-  it("rounds to step, passes through when step<=0", () => {
-    expect(snap(12.4, 1)).toBe(12);
-    expect(snap(12.6, 1)).toBe(13);
-    expect(snap(12.46, 0.1)).toBeCloseTo(12.5);
-    expect(snap(12.46, 0)).toBe(12.46);
-  });
-});
 
 describe("addElement", () => {
   it("adds a resolvable element with defaults and returns its id", () => {
