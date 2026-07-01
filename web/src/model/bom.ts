@@ -118,9 +118,36 @@ export function buildBom(model: LayoutModel, library: Library): Bom {
   return { rows, totalParts: rows.reduce((s, r) => s + r.qty, 0) };
 }
 
-/** The ITEM NO. cell: the tags joined, or "-" when none were assigned. */
+/** Minimum consecutive run collapsed to a "first-last" range (pairs stay listed). */
+const MIN_RUN = 3;
+
+/**
+ * Collapse runs of consecutive tags (same prefix, numeric suffix +1 each) into
+ * `first-last` — e.g. R101…R111 → "R101-R111", 1…16 → "1-16". Singletons and pairs
+ * stay comma-listed. Tags are assumed already sorted (buildBom sorts numerically).
+ */
+function collapseTags(tags: string[]): string {
+  const p = tags.map((t) => {
+    const m = t.match(/^(.*?)(\d+)$/);
+    return { t, prefix: m ? m[1] : t, num: m ? parseInt(m[2], 10) : NaN };
+  });
+  const out: string[] = [];
+  for (let i = 0; i < p.length; ) {
+    let j = i;
+    while (
+      j + 1 < p.length && !Number.isNaN(p[j].num) &&
+      p[j + 1].prefix === p[j].prefix && p[j + 1].num === p[j].num + 1
+    ) j += 1;
+    if (j - i + 1 >= MIN_RUN) out.push(`${p[i].t}-${p[j].t}`);
+    else for (let k = i; k <= j; k += 1) out.push(p[k].t);
+    i = j + 1;
+  }
+  return out.join(", ");
+}
+
+/** The ITEM NO. cell: the tags (consecutive runs collapsed), or "-" when none. */
 export function itemNo(row: BomRow): string {
-  return row.tags.length ? row.tags.join(", ") : "-";
+  return row.tags.length ? collapseTags(row.tags) : "-";
 }
 
 const dash = (s: string) => (s && s.trim() ? s : "-");

@@ -117,6 +117,23 @@ describe("manual BOM-only rows", () => {
   });
 });
 
+describe("itemNo range collapse", () => {
+  const mk = (tags: string[]) =>
+    ({ key: "k", tags, description: "", manufacturer: "", model: "", category: "", band: null, qty: 0, confirm: false });
+  it("collapses runs of 3+ consecutive tags; keeps singletons and pairs", () => {
+    expect(itemNo(mk(["R101", "R102", "R103", "R104", "R105", "R106", "R107", "R108", "R109", "R110", "R111"]))).toBe("R101-R111");
+    expect(itemNo(mk(["1", "2", "3", "4", "5", "6"]))).toBe("1-6");
+    expect(itemNo(mk(["S02", "S03"]))).toBe("S02, S03"); // pair stays listed
+    expect(itemNo(mk(["R1", "R2", "R3", "RM1", "RM2", "RM3", "RM4"]))).toBe("R1-R3, RM1-RM4");
+    expect(itemNo(mk(["RL1", "RL2", "RL3", "RL4", "RLH", "RLL"]))).toBe("RL1-RL4, RLH, RLL");
+    expect(itemNo(mk([]))).toBe("-");
+  });
+  it("only merges same-prefix numbers that increment by 1", () => {
+    expect(itemNo(mk(["R101", "R102", "R103", "R201", "R202", "R203"]))).toBe("R101-R103, R201-R203");
+    expect(itemNo(mk(["A1", "A2", "A4", "A5", "A6"]))).toBe("A1, A2, A4-A6"); // gap breaks the run
+  });
+});
+
 describe("bomToCsv", () => {
   it("emits the shop columns and dashes missing fields", () => {
     const csv = bomToCsv(buildBom(model(), LIB));

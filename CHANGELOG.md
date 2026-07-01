@@ -82,6 +82,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Manual BOM-only rows** — the BOM dialog now has an editable list for items **not on the plate**
   (RTU cabinet, name plates, lamp/fluorescent, fans, outlets): Item No · Description · Manufacturer ·
   Model · Qty. They merge in after the counted device rows and into the CSV, and save with the project.
+- **ITEM NO. collapses consecutive tags to ranges** — a run of 3+ consecutive tags shows as `first-last`
+  (`R101, R102, … R111` → `R101-R111`; `1…16` → `1-16`), keeping singletons/pairs listed. Big space saver
+  in the BOM table and CSV.
 - **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
   core (`model/bom.ts`) is unit-tested, no AI (CLAUDE.md §0/§5).
 
