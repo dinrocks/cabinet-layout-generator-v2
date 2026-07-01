@@ -35,6 +35,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Sets are auto-numbered in place** — a set (group) with a tag start now draws its member tags
   (`B101…B112`, `RM1…RM4`) directly, so you no longer have to **explode** it to get the numbers. Editor,
   SVG/PDF/PNG and DXF all match, and the numbers equal what an explode would bake in.
+- **Label-plate text stays inside the plate** — a long marker (e.g. "WARNING-LAMP") no longer overflows
+  past the ends of its label plate. The vertical text is now fit to the plate (length to the height, glyph
+  to the width), shrinking as needed. Editor, SVG/PDF/PNG and DXF match.
 
 ### Changed (library reorg — AMR house style)
 - **Empty starting library** — the editor opens on a **blank plate** and the palette categories start

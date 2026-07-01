@@ -281,9 +281,10 @@ class DxfAssembler:
         tag = el.get("tag")
         if tag:
             if item.get("label_plate"):
-                # marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
+                # marker plate: tag centered + vertical, fit to the plate so a long
+                # label stays inside it (length fits the height, glyph fits the width)
                 self._text(tag, x + fw / 2, y_top + fh / 2,
-                           min(6.0, 0.6 * w), rot_deg=(rot + 90) % 360)
+                           _fit_font(tag, h, w), rot_deg=(rot + 90) % 360)
             else:
                 # centered just above the part; small category font (Terminal blocks
                 # smaller so 2 digits fit), shrunk to fit if it'd overflow. Never rotated.

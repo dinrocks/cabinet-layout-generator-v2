@@ -417,9 +417,10 @@ export default function FabricStage(props: Props) {
         }).catch(() => { /* fall back to the rect */ });
       }
       if (el.tag && item && item.source === "rect" && item.label_plate) {
-        // marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
+        // marker plate: tag centered + vertical, fit to the plate so a long label stays inside
+        const s = libItemSize(item);
         canvas.add(new FabricText(el.tag, {
-          fontSize: Math.min(6, 0.6 * libItemSize(item).w), fontFamily: "Arial", fill: "#111",
+          fontSize: fitFontSize(el.tag, s.h, s.w), fontFamily: "Arial", fill: "#111",
           selectable: false, evented: false,
           originX: "center", originY: "center",
           left: el.x_mm + f.w / 2, top: el.y_mm + f.h / 2,
