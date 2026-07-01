@@ -408,26 +408,34 @@ export default function App() {
       <header className="topbar">
         <strong>Cabinet Layout Generator</strong>
         <span className="muted">
-          <input className="projname" value={model.project.name} onChange={(e) => renameProject(e.target.value)}
-            aria-label="Project name" title="Project name" />
+          <span className="projname-field" title="Click to rename this project">
+            <span className="projname-ico" aria-hidden="true">✎</span>
+            <input className="projname" value={model.project.name} placeholder="Untitled project"
+              onChange={(e) => renameProject(e.target.value)} aria-label="Project name" />
+          </span>
           {" · "}{model.plate.width_mm}×{model.plate.height_mm} mm
         </span>
 
         <div className="toolbar">
+          {/* File */}
           <span className="group">
             <button type="button" title="New layout" onClick={doNewProject}>New</button>
-            {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={doSaveCloud}>Save</button>}
             {ready && <button type="button" title="Open a saved layout" onClick={openProjectsModal}>Open…</button>}
+            {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={doSaveCloud}>Save</button>}
             <button type="button" className="ghost icon" title="Download layout as JSON" onClick={() => downloadLayout(model, library)}>⬇</button>
             <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={doOpenFile}>⬆</button>
           </span>
-          <span className="group">
-            <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
-              onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
-          </span>
+          {/* History */}
           <span className="group">
             <button type="button" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">↶</button>
             <button type="button" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">↷</button>
+          </span>
+          {/* View */}
+          <span className="group">
+            <button type="button" className="icon" title="Zoom out" onClick={() => setZoom((z) => clampZoom(z / 1.25))}>−</button>
+            <span className="zoompct" title="Current zoom">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="icon" title="Zoom in" onClick={() => setZoom((z) => clampZoom(z * 1.25))}>+</button>
+            <button type="button" className="ghost" title="Fit to view" onClick={() => setFitNonce((n) => n + 1)}>Fit</button>
             <label className="field">
               <input type="checkbox" checked={snapStep > 0} onChange={(e) => setSnapStep(e.target.checked ? 1 : 0)} />
               Snap 1mm
@@ -437,12 +445,7 @@ export default function App() {
               Align
             </label>
           </span>
-          <span className="group">
-            <button type="button" className="icon" title="Zoom out" onClick={() => setZoom((z) => clampZoom(z / 1.25))}>−</button>
-            <span className="zoompct" title="Current zoom">{Math.round(zoom * 100)}%</span>
-            <button type="button" className="icon" title="Zoom in" onClick={() => setZoom((z) => clampZoom(z * 1.25))}>+</button>
-            <button type="button" className="ghost" title="Fit to view" onClick={() => setFitNonce((n) => n + 1)}>Fit</button>
-          </span>
+          {/* Export — DXF */}
           <span className="group">
             <button type="button" className={`svc svc-${svc}`} onClick={checkSvc}
               title={
@@ -459,6 +462,7 @@ export default function App() {
             </label>
             <button type="button" disabled={busy} onClick={() => run("DXF (waking service)", () => exportDxf(model, library, dxfScale))}>Export DXF</button>
           </span>
+          {/* Export — page + BOM */}
           <span className="group">
             <label className="field">Paper
               <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)}>
@@ -468,9 +472,12 @@ export default function App() {
             <button type="button" className="ghost" disabled={busy} onClick={() => run("PDF", () => downloadPdf(model, library, paper))}>PDF</button>
             <button type="button" className="ghost" disabled={busy} onClick={() => run("PNG", () => downloadPng(model, library, paper))}>PNG</button>
             <button type="button" className="ghost" disabled={busy} onClick={() => run("SVG", () => downloadSvg(model, library))}>SVG</button>
-          </span>
-          <span className="group">
             <button type="button" className="ghost" title="Bill of Materials — count placed parts by category, export CSV" onClick={() => setShowBom(true)}>BOM</button>
+          </span>
+          {/* Right cluster: help · status · account (pushed right) */}
+          <span className="group right">
+            <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
+              onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
           </span>
           {status.kind === "busy" && <span className="status">… {status.label}</span>}
           {status.kind === "done" && <span className="status ok">✓ {status.label}</span>}

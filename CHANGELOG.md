@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Changed — top-bar tidy-up
+- **Project name reads as an editable field** — it's now a bordered box with a ✎ pencil and an
+  "Untitled project" placeholder, instead of looking like static grey text.
+- **Toolbar regrouped by purpose** — File · History · View (zoom + Snap + Align) · Export (DXF /
+  PDF-PNG-SVG-BOM) · and Help + status + account pushed to the far right. Same buttons, clearer order.
+
 ### Added (Slice 1 — auth + cloud-saved projects)
 - **Supabase auth** with an **email allowlist** (RLS-enforced): sign in with GitHub/Google; only
   allow-listed emails get access; first login sets a display name.
