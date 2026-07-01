@@ -16,7 +16,7 @@ import { Canvas, Rect, Textbox, FabricText, Line, loadSVGFromString, util, type 
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
-import { snap, anchorHost, type EntityKind } from "../model/edit";
+import { snap, anchorHost, stepTag, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
@@ -365,6 +365,22 @@ export default function FabricStage(props: Props) {
         left: g.x_mm, top: g.y_mm, width: total, height: f.h,
         fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(g.id),
       })));
+      // auto-number each member in place (a set shows its tags without exploding)
+      if (g.tag_start) {
+        const cap = tagFontMm(item.band);
+        let gx = g.x_mm;
+        for (let i = 0; i < g.count; i += 1) {
+          const t = stepTag(g.tag_start, i * g.tag_step);
+          const th = Math.max(1.5, Math.min(cap, (0.92 * f.w) / (Math.max(1, t.length) * 0.62)));
+          canvas.add(new FabricText(t, {
+            fontSize: th, fontFamily: "Arial", fill: "#111",
+            selectable: false, evented: false,
+            originX: "center", originY: "bottom",
+            left: gx + f.w / 2, top: g.y_mm - TAG_GAP_MM,
+          }));
+          gx += f.w + g.internal_gap_mm;
+        }
+      }
     }
 
     for (const el of model.elements) {

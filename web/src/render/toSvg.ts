@@ -14,6 +14,7 @@ import type { LayoutModel, Library, Element } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { rowDims, ROW_DIM_MARGIN_MM, detectRows } from "../model/rows";
+import { stepTag } from "../model/edit";
 
 export interface RenderOptions {
   /** Draw selection-free; exports use this. Defaults to a clean render. */
@@ -151,6 +152,8 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     let x = g.x_mm;
     for (let i = 0; i < g.count; i += 1) {
       parts.push(`<rect x="${x}" y="${g.y_mm}" width="${f.w}" height="${f.h}" fill="#fff" stroke="#222" stroke-width="0.3"/>`);
+      // auto-number each member in place (so a set shows its tags without exploding)
+      if (g.tag_start) parts.push(partTag(stepTag(g.tag_start, i * g.tag_step), x, g.y_mm, f.w, tagFontMm(item.band)));
       x += f.w + g.internal_gap_mm;
     }
     parts.push(`</g>`);

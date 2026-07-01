@@ -32,6 +32,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   category — centered just above each part, never rotated, and shrunk to fit if a tag would overflow a narrow
   part so it never overlaps a neighbour. Applied identically in the editor, SVG/PDF/PNG, and DXF. (Sizes are
   constants — easy to tune.)
+- **Sets are auto-numbered in place** — a set (group) with a tag start now draws its member tags
+  (`B101…B112`, `RM1…RM4`) directly, so you no longer have to **explode** it to get the numbers. Editor,
+  SVG/PDF/PNG and DXF all match, and the numbers equal what an explode would bake in.
 
 ### Changed (library reorg — AMR house style)
 - **Empty starting library** — the editor opens on a **blank plate** and the palette categories start

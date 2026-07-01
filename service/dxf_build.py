@@ -18,6 +18,7 @@ Conventions honoured here:
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 import ezdxf
@@ -52,6 +53,17 @@ def _num(v: object) -> str:
     """Format a dimension without a trailing '.0' (e.g. 40.0 -> '40')."""
     f = float(v)
     return str(int(f)) if f.is_integer() else str(f)
+
+
+def _step_tag(start: str, n: int) -> str:
+    """Step an auto-tag like "B101"/"RM1" by n, keeping the prefix + zero-pad width.
+    Mirrors stepTag() in web/src/model/edit.ts so a set's in-place numbers match the
+    tags an explode would bake in."""
+    m = re.match(r"^(.*?)(\d+)$", start)
+    if not m:
+        return start if n == 0 else f"{start}{n}"
+    prefix, num = m.group(1), m.group(2)
+    return f"{prefix}{int(num) + n:0{len(num)}d}"
 
 
 def _fit_font(text: str, w: float, h: float) -> float:
@@ -297,8 +309,17 @@ class DxfAssembler:
         block_name = (self._import_block(g["lib_key"], item["block_ref"])
                       if item["source"] == "dxf" and item.get("block_ref")
                       else self._unit_block(g["lib_key"], w, h))
-        for _ in range(int(g["count"])):
+        tag_start = g.get("tag_start")
+        tag_step = int(g.get("tag_step", 1))
+        cap = TAG_FONT_TERMINAL_MM if item.get("band") == TERMINAL_BAND else TAG_FONT_MM
+        bc = ezdxf.enums.TextEntityAlignment.BOTTOM_CENTER
+        for i in range(int(g["count"])):
             self._place_block(block_name, w, h, x, y_top, rot)
+            # auto-number each member in place (so a set is tagged without exploding)
+            if tag_start:
+                tag = _step_tag(str(tag_start), i * tag_step)
+                tag_h = max(1.5, min(cap, (0.92 * fw) / (max(1, len(tag)) * 0.62)))
+                self._text(tag, x + fw / 2, y_top - TAG_GAP_MM, tag_h, align=bc)
             x += fw + gap
 
     def _place_duct(self, d: dict[str, Any]) -> None:

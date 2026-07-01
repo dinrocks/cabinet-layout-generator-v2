@@ -67,7 +67,8 @@ model = {
     ],
     "groups": [
         {"id": "g_term", "kind": "set", "lib_key": "term_degson_2c_2_5", "count": 12,
-         "internal_gap_mm": 0.1, "x_mm": SD + 10, "y_mm": 320, "rot_deg": 0},
+         "internal_gap_mm": 0.1, "x_mm": SD + 10, "y_mm": 320, "rot_deg": 0,
+         "tag_start": "B101", "tag_step": 1},
     ],
     "labels": [
         {"id": "L1", "text": "24VDC", "anchor": "group:g_term", "dx_mm": 0, "dy_mm": -6, "rot_deg": 0},
@@ -99,6 +100,10 @@ wipeouts = [e for e in msp if e.dxftype() == "WIPEOUT"]
 assert len(wipeouts) == 1, f"one wipeout for the labelled stopper, got {len(wipeouts)}"
 assert "X1" in texts, "the label marker reads over the masked stopper"
 print("OK: labelled stopper masked by 1 wipeout, marker 'X1' on top")
+
+# a SET auto-numbers its members in place (no explode needed): B101..B112
+assert "B101" in texts and "B112" in texts, "set members are auto-tagged B101..B112"
+print("OK: un-exploded set is auto-numbered B101..B112")
 
 # the two FC6A INSERTs must NOT overlap (rotated-anchor fix)
 fc6a = [e for e in all_inserts if e.dxf.name == "EQ_plc_idec_FC6A_D16"]
