@@ -61,7 +61,7 @@ export async function addLibraryItem(item: DxfLibItem, userId: string): Promise<
 /** Rename / recategorise / edit BOM fields of a shared part (admin-only, RLS). */
 export async function updateLibraryItem(
   libKey: string,
-  patch: { name?: string; band?: number; manufacturer?: string; model?: string; description?: string },
+  patch: { name?: string; band?: number; manufacturer?: string; model?: string; description?: string; rail_offset_mm?: number },
 ): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from("library_items").update(patch).eq("lib_key", libKey);

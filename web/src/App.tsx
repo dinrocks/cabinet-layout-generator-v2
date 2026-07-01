@@ -322,6 +322,7 @@ export default function App() {
     const fields = {
       name: patch.name, band: patch.band,
       manufacturer: patch.manufacturer, model: patch.model, description: patch.description,
+      rail_offset_mm: patch.railOffsetMm,
     };
     setLibrary((l) => ({ ...l, [libKey]: { ...l[libKey], ...fields } }));
     if (sharedLib[libKey]) {

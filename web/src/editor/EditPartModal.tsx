@@ -15,6 +15,7 @@ export interface PartEdit {
   manufacturer: string;
   model: string;
   description: string;
+  railOffsetMm: number;
 }
 
 interface Props {
@@ -31,6 +32,7 @@ export default function EditPartModal({ item, shared, onSave, onCancel }: Props)
   const [manufacturer, setManufacturer] = useState(item.manufacturer ?? "");
   const [model, setModel] = useState(item.model ?? "");
   const [description, setDescription] = useState(item.description ?? "");
+  const [railOffset, setRailOffset] = useState<number>(item.rail_offset_mm ?? item.height_mm / 2);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
@@ -40,7 +42,8 @@ export default function EditPartModal({ item, shared, onSave, onCancel }: Props)
 
   const save = () => {
     if (name.trim()) onSave({
-      name: name.trim(), band, manufacturer: manufacturer.trim(), model: model.trim(), description: description.trim(),
+      name: name.trim(), band, manufacturer: manufacturer.trim(), model: model.trim(),
+      description: description.trim(), railOffsetMm: railOffset,
     });
   };
 
@@ -67,6 +70,15 @@ export default function EditPartModal({ item, shared, onSave, onCancel }: Props)
             {BANDS.map((b) => <option key={b.band} value={b.band}>{b.band}. {b.name}</option>)}
           </select>
         </label>
+
+        <label className="prow">
+          <span className="plabel">Rail line (mm from top)</span>
+          <input type="number" step={0.5} value={railOffset} onChange={(e) => setRailOffset(Number(e.target.value))} />
+        </label>
+        <p className="rail-note">
+          Distance from the top edge down to the DIN-rail line — devices in a row align on this so their
+          hooks match. Set it to the part's centre ({(item.height_mm / 2).toFixed(1)} mm) for centre alignment.
+        </p>
 
         <p className="bom-fields-head">BOM details <span>(shown in the Bill of Materials)</span></p>
         <label className="prow">
