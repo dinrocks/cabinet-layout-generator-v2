@@ -73,6 +73,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   and the Edit dialog persists the rail line to the shared catalog too). Human-entered,
   never invented (CLAUDE.md §0); unentered fields show **"-"**. Shared parts persist them in `library_items`
   (re-run `supabase/schema.sql` once to add the columns).
+- **Manual BOM-only rows** — the BOM dialog now has an editable list for items **not on the plate**
+  (RTU cabinet, name plates, lamp/fluorescent, fans, outlets): Item No · Description · Manufacturer ·
+  Model · Qty. They merge in after the counted device rows and into the CSV, and save with the project.
 - **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
   core (`model/bom.ts`) is unit-tested, no AI (CLAUDE.md §0/§5).
 

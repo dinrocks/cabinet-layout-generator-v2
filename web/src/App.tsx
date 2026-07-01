@@ -706,7 +706,12 @@ export default function App() {
           onConfirm={confirmUpload} onCancel={() => setUpload({ status: "idle" })} />
       )}
 
-      {showBom && <BomModal model={model} library={library} onClose={() => setShowBom(false)} />}
+      {showBom && (
+        <BomModal model={model} library={library}
+          extras={model.bom_extras ?? []}
+          onChangeExtras={(ex) => set({ ...model, bom_extras: ex })}
+          onClose={() => setShowBom(false)} />
+      )}
 
       {editKey && library[editKey] && (
         <EditPartModal item={library[editKey]} shared={!!sharedLib[editKey]}

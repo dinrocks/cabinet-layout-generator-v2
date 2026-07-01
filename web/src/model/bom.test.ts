@@ -96,6 +96,27 @@ describe("buildBom", () => {
   });
 });
 
+describe("manual BOM-only rows", () => {
+  it("appends manual lines after the device rows, in order, skipping blanks", () => {
+    const m = model();
+    m.bom_extras = [
+      { id: "x1", item_no: "1", description: "RTU CABINET STEEL SHEET W800xH2000xD500", manufacturer: "LOCAL", model: "", qty: 1 },
+      { id: "x2", item_no: "FAN01, FAN02", description: "FAN 220VAC 6\"", manufacturer: "", model: "", qty: 2 },
+      { id: "x3", item_no: "", description: "", manufacturer: "", model: "", qty: 0 }, // blank → skipped
+    ];
+    const bom = buildBom(m, LIB);
+    expect(itemNo(row(bom, "extra_x1"))).toBe("1");
+    expect(row(bom, "extra_x1").manufacturer).toBe("LOCAL");
+    expect(itemNo(row(bom, "extra_x2"))).toBe("FAN01, FAN02");
+    expect(row(bom, "extra_x2").qty).toBe(2);
+    expect(bom.rows.some((r) => r.key === "extra_x3")).toBe(false);
+    // extras come after every counted device row
+    const flags = bom.rows.map((r) => r.key.startsWith("extra_"));
+    expect(flags.indexOf(true)).toBeGreaterThan(flags.lastIndexOf(false));
+    expect(bom.totalParts).toBe(18 + 1 + 2); // devices + cabinet + fans
+  });
+});
+
 describe("bomToCsv", () => {
   it("emits the shop columns and dashes missing fields", () => {
     const csv = bomToCsv(buildBom(model(), LIB));
@@ -105,5 +126,12 @@ describe("bomToCsv", () => {
     expect(lines.some((l) => l.startsWith('PS01,"120W SINGLE OUTPUT SWITCHING POWER SUPPLY, 24VDC",MEANWELL,NDR-120-24,1'))).toBe(true);
     // relay set: tags joined, manufacturer/model unentered → "-"
     expect(lines.some((l) => l.includes("Relay 24VDC,-,-,12"))).toBe(true);
+  });
+
+  it("includes manual BOM-only rows", () => {
+    const m = model();
+    m.bom_extras = [{ id: "x1", item_no: "1", description: "RTU CABINET", manufacturer: "LOCAL", model: "", qty: 1 }];
+    const csv = bomToCsv(buildBom(m, LIB));
+    expect(csv).toContain("1,RTU CABINET,LOCAL,-,1");
   });
 });

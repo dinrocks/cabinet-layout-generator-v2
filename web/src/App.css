@@ -110,6 +110,12 @@
 .bom-est { color: #9a6700; font-weight: 700; }
 .bom-note { font-size: 11px; color: #9aa3af; margin: 6px 0 0; line-height: 1.4; }
 .bom-empty { font-size: 13px; color: #6b7280; margin: 8px 0; }
+/* editable manual-items table */
+.bom-extras-table td { padding: 3px 4px; }
+.bom-extras-table input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 3px 5px; border: 1px solid #cfd4dc; border-radius: 4px; }
+.bom-extras-table input:focus { border-color: #2f6fed; outline: none; }
+.bom-extras-table input[type="number"] { text-align: right; }
+.bom-add { margin: 6px 0 0; font-size: 12px; padding: 5px 10px; border: 1px solid #2f6fed; color: #2f6fed; background: #fff; border-radius: 5px; cursor: pointer; }
 .bom-fields-head { margin: 12px 0 4px; font-size: 12px; font-weight: 600; color: #374151; }
 .bom-fields-head span { font-weight: 400; color: #9aa3af; }
 .rail-note { font-size: 11px; color: #6b7280; margin: 2px 0 6px; line-height: 1.4; }

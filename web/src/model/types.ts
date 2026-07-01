@@ -103,6 +103,20 @@ export interface DisplayPrefs {
   snap_enabled: boolean;
 }
 
+/**
+ * A manual Bill-of-Materials line for something NOT drawn on the back-plate — the
+ * cabinet, name plates, lamp, fans, outlets, etc. All fields human-entered; merged
+ * into the BOM after the counted device rows. (Never invented — CLAUDE.md §0.)
+ */
+export interface BomExtra {
+  id: string;
+  item_no: string;      // free text: "1", "FAN01, FAN02", "FLOURESCENT"…
+  description: string;
+  manufacturer: string;
+  model: string;
+  qty: number;
+}
+
 export interface LayoutModel {
   project: ProjectMeta;
   plate: Plate;
@@ -112,6 +126,8 @@ export interface LayoutModel {
   groups: Group[];
   labels: Label[];
   display: DisplayPrefs;
+  /** Manual BOM-only lines (cabinet, name plates, fans…); optional. */
+  bom_extras?: BomExtra[];
 }
 
 /* ----------------------------- Library items ----------------------------- */

@@ -91,12 +91,30 @@ export function buildBom(model: LayoutModel, library: Library): Bom {
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   for (const row of byKey.values()) row.tags.sort((a, b) => collator.compare(a, b));
 
-  const rows = [...byKey.values()].sort((a, b) => {
+  const deviceRows = [...byKey.values()].sort((a, b) => {
     const ba = a.band ?? Number.MAX_SAFE_INTEGER;
     const bb = b.band ?? Number.MAX_SAFE_INTEGER;
     if (ba !== bb) return ba - bb;
     return a.description.localeCompare(b.description);
   });
+
+  // manual BOM-only lines (cabinet, name plates, fans…) follow the counted rows,
+  // in the order the engineer entered them (not re-sorted).
+  const extras: BomRow[] = (model.bom_extras ?? [])
+    .filter((x) => x.item_no.trim() || x.description.trim() || x.qty > 0)
+    .map((x) => ({
+      key: `extra_${x.id}`,
+      tags: x.item_no.trim() ? [x.item_no.trim()] : [],
+      description: x.description.trim() || "(unnamed)",
+      manufacturer: x.manufacturer,
+      model: x.model,
+      category: "BOM-only (not on plate)",
+      band: null,
+      qty: x.qty,
+      confirm: false,
+    }));
+
+  const rows = [...deviceRows, ...extras];
   return { rows, totalParts: rows.reduce((s, r) => s + r.qty, 0) };
 }
 

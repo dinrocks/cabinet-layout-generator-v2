@@ -16,20 +16,19 @@ invents geometry or part data.
 - **Library** — empty-start palette, categories 1–8 (incl. 6 Stopper / 7 Slim Stopper /
   8 Accessories), "Add label plate" locked pairs, custom parts.
 
+## Done (recent)
+
+### BOM (Bill of Materials) export — COMPLETE
+Shop-drawing format matched to the engineer's real BOM: ITEM NO. (equipment tags) · DESCRIPTION ·
+MANUFACTURER · MODEL · QTY. Pure tested core (`model/bom.ts`); per-part data entered at upload + editable
+in the panel and the ✎ Edit-part dialog; **manual BOM-only rows** (`model.bom_extras[]`) for items not on
+the plate (cabinet, name plates, lamp, fans, outlets), edited in the BOM modal; CSV download; saved with
+the project.
+- Optional later polish: collapse long set tag lists to a range ("B101–B112"); printable/PDF BOM.
+
 ## Now / In progress
 
-### BOM (Bill of Materials) export
-**Device rows — DONE** (shop-drawing format, matched to the engineer's real BOM):
-ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY. Pure tested core
-(`model/bom.ts`), per-part data entered at upload + editable in the panel, CSV download.
-
-**Next (this feature's remaining piece): manual BOM-only rows.** The real sheet also lists items
-that aren't placed on the back-plate — the **cabinet** (e.g. "RTU CABINET STEEL SHEET W800×H2000×D500"),
-**name plates**, **lamp/fluorescent**, **fans**, **outlets**. Add a project-level editable list of
-BOM-only line items (ITEM NO. / description / manufacturer / model / qty) that merge into the BOM and
-CSV. Generalises the existing `BOM_ONLY_ACCESSORIES` idea.
-- Likely a `project.bom_extras[]` on the model + a small editor in the BOM modal.
-- Optional polish: collapse long set tag lists to a range ("B101–B112"); printable/PDF BOM.
+_Pick the next item from the backlog below (suggested: multi-user safety)._
 
 ## Backlog (deferred, in rough priority order)
 
