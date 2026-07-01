@@ -112,6 +112,7 @@
 .bom-empty { font-size: 13px; color: #6b7280; margin: 8px 0; }
 .bom-fields-head { margin: 12px 0 4px; font-size: 12px; font-weight: 600; color: #374151; }
 .bom-fields-head span { font-weight: 400; color: #9aa3af; }
+.rail-note { font-size: 11px; color: #6b7280; margin: 2px 0 6px; line-height: 1.4; }
 
 /* full-width stacked field (label above) — used for the long Description textarea */
 .prow.prow-col { display: block; }

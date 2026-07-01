@@ -48,6 +48,13 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   and overflow counting) no longer treats a coincident label plate as its own device, so it stays on
   top of its stopper instead of sliding into a separate slot beside it.
 
+### Added — DIN-rail alignment from the DXF origin
+- **Uploaded devices remember their own 0,0 as the rail datum.** The service reads the DXF origin at upload
+  and derives the **rail offset** (top→origin), so a row of different-height devices aligns by their **DIN-rail
+  hook line** instead of by bounding-box centre. The upload dialog shows a **"Rail line (mm from top)"** field
+  (pre-filled from the origin, editable); it falls back to centre when the origin lands outside the outline.
+  Still tunable later via the panel's "Rail offset". (No AI — a measured geometric datum, human-confirmed.)
+
 ### Added — BOM (Bill of Materials)
 - **BOM toolbar button** opens a parts list shaped to the shop-drawing BOM —
   **ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY**. Every placed element counts 1,

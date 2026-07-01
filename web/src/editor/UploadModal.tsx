@@ -21,7 +21,7 @@ interface Props {
   defaultName: string;
   /** true when signed in (cloud), so the part can be shared. */
   canShare: boolean;
-  onConfirm: (name: string, shared: boolean, band: number, meta: BomMeta) => void;
+  onConfirm: (name: string, shared: boolean, band: number, meta: BomMeta, railOffsetMm: number) => void;
   onCancel: () => void;
 }
 
@@ -32,10 +32,12 @@ export default function UploadModal({ result, defaultName, canShare, onConfirm, 
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
   const [description, setDescription] = useState("");
+  // rail datum: prefer the DXF origin (from the service); else default to the centre
+  const [railOffset, setRailOffset] = useState<number>(result.rail_offset_mm ?? result.height_mm / 2);
   const confirm = () => {
     if (name.trim()) onConfirm(name.trim(), canShare && shared, band, {
       manufacturer: manufacturer.trim(), model: model.trim(), description: description.trim(),
-    });
+    }, railOffset);
   };
 
   // Esc closes (a deliberate keypress) — but a click outside does NOT, so a mis-click
@@ -62,6 +64,16 @@ export default function UploadModal({ result, defaultName, canShare, onConfirm, 
             ⚠ Units not detected as mm (got: {result.units}). Confirm only if the size looks right.
           </p>
         )}
+
+        <label className="prow">
+          <span className="plabel">Rail line (mm from top)</span>
+          <input type="number" step={0.5} value={railOffset} onChange={(e) => setRailOffset(Number(e.target.value))} />
+        </label>
+        <p className="rail-note">
+          {result.rail_from_origin
+            ? "From the DXF origin (0,0) — the DIN-rail datum. Devices in a row align on this line so their rail hooks match."
+            : "Default: the part's centre (the DXF 0,0 wasn't inside the outline). Set this to the rail line so devices align by the rail."}
+        </p>
 
         <label className="prow">
           <span className="plabel">Name</span>

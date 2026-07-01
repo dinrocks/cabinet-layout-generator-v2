@@ -381,11 +381,12 @@ export default function App() {
       setUpload({ status: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }
-  async function confirmUpload(name: string, shared: boolean, band: number, meta: BomMeta) {
+  async function confirmUpload(name: string, shared: boolean, band: number, meta: BomMeta, railOffsetMm: number) {
     if (upload.status !== "confirm") return;
     const key = `up_${Date.now().toString(36)}`;
     const item: DxfLibItem = {
       lib_key: key, name, source: "dxf", band,
+      rail_offset_mm: railOffsetMm, // DIN-rail datum (from the DXF origin, or the user's value)
       ...(meta.manufacturer ? { manufacturer: meta.manufacturer } : {}),
       ...(meta.model ? { model: meta.model } : {}),
       ...(meta.description ? { description: meta.description } : {}),

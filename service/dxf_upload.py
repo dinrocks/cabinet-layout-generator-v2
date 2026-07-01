@@ -33,6 +33,14 @@ def process_upload(data: bytes) -> dict[str, Any]:
     width_mm = round(ext.size.x, 3)
     height_mm = round(ext.size.y, 3)
 
+    # DIN-rail datum from the DXF's own origin: engineers place 0,0 on the rail
+    # line, so the distance from the part's TOP (extmax.y, +y is up) down to y=0 is
+    # the rail offset the editor aligns by. Only trust it when the origin lands
+    # inside the outline (± a margin) — a DXF drawn far from 0,0 falls back to centre.
+    margin = max(5.0, 0.1 * height_mm)
+    rail_from_origin = (ext.extmin.y - margin) <= 0 <= (ext.extmax.y + margin)
+    rail_offset_mm = round(max(0.0, ext.extmax.y), 3) if rail_from_origin else None
+
     # render a clean SVG for the editor (native backend, no matplotlib)
     ctx = RenderContext(doc)
     backend = ezsvg.SVGBackend()
@@ -45,6 +53,9 @@ def process_upload(data: bytes) -> dict[str, Any]:
         "block_ref": block_id,
         "width_mm": width_mm,
         "height_mm": height_mm,
+        # rail datum from the DXF origin (null → the editor defaults to the centre)
+        "rail_offset_mm": rail_offset_mm,
+        "rail_from_origin": rail_from_origin,
         "units": "mm" if insunits == 4 else f"insunits={insunits}",
         "units_confirmed": insunits == 4,  # if False, UI must ask the engineer
         "svg": svg_str,

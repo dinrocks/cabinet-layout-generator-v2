@@ -29,6 +29,9 @@ export interface UploadResult {
   block_ref: string;
   width_mm: number;
   height_mm: number;
+  /** Rail datum from the DXF origin (distance from top); null → default to centre. */
+  rail_offset_mm: number | null;
+  rail_from_origin: boolean;
   units: string;
   units_confirmed: boolean;
   svg: string;
