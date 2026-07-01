@@ -20,6 +20,7 @@ import FabricStage, { type Selection } from "./editor/FabricStage";
 import { clampZoom } from "./editor/zoom";
 import UploadModal, { type BomMeta } from "./editor/UploadModal";
 import BomModal from "./editor/BomModal";
+import EditPartModal, { type PartEdit } from "./editor/EditPartModal";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
@@ -154,6 +155,7 @@ export default function App() {
   // live ezdxf-service availability (DXF upload/export need it; PDF/PNG/SVG don't)
   const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
   const [showBom, setShowBom] = useState(false);
+  const [editKey, setEditKey] = useState<string | null>(null);
   const checkSvc = async () => {
     setSvc((s) => (s === "online" ? s : "checking"));
     setSvc((await ping()) ? "online" : "offline");
@@ -313,19 +315,19 @@ export default function App() {
     setSelections([{ id: r.id, kind: "element" }]);
   }
 
-  /** Rename a library part (and the shared catalog if it's a shared part — admin RLS). */
-  async function renameLibraryPart(libKey: string) {
-    const cur = library[libKey];
-    if (!cur) return;
-    const input = window.prompt("Rename part", cur.name);
-    if (input == null) return;
-    const name = input.trim();
-    if (!name) return;
-    setLibrary((l) => ({ ...l, [libKey]: { ...l[libKey], name } }));
+  /** Save edits to a library part — name, category, and BOM fields (the same fields
+   *  captured at upload). Updates the shared catalog too when the part is shared. */
+  async function saveLibraryPart(libKey: string, patch: PartEdit) {
+    setEditKey(null);
+    const fields = {
+      name: patch.name, band: patch.band,
+      manufacturer: patch.manufacturer, model: patch.model, description: patch.description,
+    };
+    setLibrary((l) => ({ ...l, [libKey]: { ...l[libKey], ...fields } }));
     if (sharedLib[libKey]) {
-      setSharedLib((s) => ({ ...s, [libKey]: { ...s[libKey], name } }));
-      if (!(await updateLibraryItem(libKey, { name })))
-        setStatus({ kind: "error", message: "Renamed locally, but the shared-library update was rejected (admin only)." });
+      setSharedLib((s) => ({ ...s, [libKey]: { ...s[libKey], ...fields } }));
+      if (!(await updateLibraryItem(libKey, fields)))
+        setStatus({ kind: "error", message: "Saved locally, but the shared-library update was rejected (admin only)." });
     }
   }
 
@@ -517,7 +519,7 @@ export default function App() {
                     onClick={() => addPart(it.lib_key)}>
                     {it.name || "(unnamed)"}{it.confirm ? " *" : ""}
                   </button>
-                  <button type="button" className="lib-mini" title="Rename" onClick={() => renameLibraryPart(it.lib_key)}>✎</button>
+                  <button type="button" className="lib-mini" title="Edit part (name, category, BOM details)" onClick={() => setEditKey(it.lib_key)}>✎</button>
                   <button type="button" className="lib-mini" title="Delete from library" onClick={() => deleteLibraryPart(it.lib_key)}>✕</button>
                 </div>
               ))}
@@ -703,6 +705,11 @@ export default function App() {
       )}
 
       {showBom && <BomModal model={model} library={library} onClose={() => setShowBom(false)} />}
+
+      {editKey && library[editKey] && (
+        <EditPartModal item={library[editKey]} shared={!!sharedLib[editKey]}
+          onSave={(p) => saveLibraryPart(editKey, p)} onCancel={() => setEditKey(null)} />
+      )}
 
       {rowEdit && (
         <input className="rowedit" type="number" autoFocus defaultValue={rowEdit.value}

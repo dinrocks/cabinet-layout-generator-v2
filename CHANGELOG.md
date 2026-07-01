@@ -54,9 +54,10 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   a set of N counts N (its auto-tags B101… expand into ITEM NO.), aggregated by part. Locked stopper+label
   pairs tally as the stopper plus one collapsed **"Label for stopper"** line; unconfirmed sizes flagged (`*`).
 - **Per-part BOM data** — `manufacturer` / `model` / `description` are entered in the upload dialog and
-  editable later on a selected part (the panel's "BOM details"). Human-entered, never invented (CLAUDE.md
-  §0); unentered fields show **"-"**. Shared parts persist them in `library_items` (re-run `supabase/schema.sql`
-  once to add the columns).
+  editable later, either on a selected placed part (the panel's "BOM details") or via the library's **✎ Edit
+  part** dialog (name · category · manufacturer · model · description — the same fields as upload). Human-entered,
+  never invented (CLAUDE.md §0); unentered fields show **"-"**. Shared parts persist them in `library_items`
+  (re-run `supabase/schema.sql` once to add the columns).
 - **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
   core (`model/bom.ts`) is unit-tested, no AI (CLAUDE.md §0/§5).
 
