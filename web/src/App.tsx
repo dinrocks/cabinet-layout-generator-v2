@@ -560,10 +560,10 @@ export default function App() {
             <input className="projname" value={model.project.name} placeholder="Untitled project"
               onChange={(e) => renameProject(e.target.value)} aria-label="Project name" />
           </span>
-          {" · "}{model.plate.width_mm}×{model.plate.height_mm} mm
+          <span className="dim">· {model.plate.width_mm}×{model.plate.height_mm} mm</span>
           {lastSaved && (
             <span className="savedby" title={`Last saved ${new Date(lastSaved.at).toLocaleString()}`}>
-              {" · saved by "}{lastSaved.name || "—"} {timeAgo(lastSaved.at)}
+              · saved by {lastSaved.name || "—"} {timeAgo(lastSaved.at)}
             </span>
           )}
         </span>

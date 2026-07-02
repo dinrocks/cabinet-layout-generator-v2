@@ -172,6 +172,9 @@
 .issues li.error code { color: #c00; }
 
 .muted { color: #6b7280; }
+/* top-bar meta: name field + plate size + saved-by, wrapping as whole chunks */
+.topbar .muted { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.topbar .muted .dim { white-space: nowrap; }
 .small { font-size: 12px; }
 
 /* inline row-height editor (opens at the clicked dimension) */
