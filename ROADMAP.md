@@ -24,35 +24,53 @@ MANUFACTURER · MODEL · QTY. Pure tested core (`model/bom.ts`); per-part data e
 in the panel and the ✎ Edit-part dialog; **manual BOM-only rows** (`model.bom_extras[]`) for items not on
 the plate (cabinet, name plates, lamp, fans, outlets), edited in the BOM modal; CSV download; saved with
 the project.
-- Optional later polish: collapse long set tag lists to a range ("B101–B112"); printable/PDF BOM.
+- Shipped polish: ITEM NO. collapses consecutive tag runs to ranges ("B101–B112").
+- Optional later polish: printable/PDF BOM.
 
 ## Now / In progress
 
-_Pick the next item from the backlog below (suggested: multi-user safety)._
+_Next: the hardening block below (from the risk review), starting with the dirty-guard and
+multi-user safety._
+
+## Hardening block — protect the drawings (from [docs/RISK_REVIEW.md](docs/RISK_REVIEW.md), 2026-07-02)
+
+A whole-project risk review ranked what can actually hurt us. Full reasoning (the *why* and the
+failure stories) lives in the review doc; this is the build order:
+
+1. **Unsaved-changes guard** — `beforeunload` when dirty since last save (+ optional localStorage
+   draft autosave). Today, closing the tab silently loses all unsaved work. (~1 h) → R2
+2. **Multi-user safety** — "last saved by <name> at <time>" on open/top bar; on Save, warn if the
+   server row changed since load (Reload / Save anyway). The concurrent-clobber guard. (~½ day) → R3
+3. **Project revisions + backup** — `project_revisions` table keeping the last ~20 saves per
+   project (restorable from the Open dialog) + a nightly GitHub-Action dump of the projects table.
+   Turns "drawing gone forever after one bad save" into "restore a revision". (~½ day) → R1
+4. **Upload size cap** — `/upload` reads unbounded bytes into a 512 MB Render instance; reject
+   > ~20 MB early. (minutes) → R4
+5. **Assembler harness in CI** — commit a small sample DXF (`service/testdata/`) and de-hardcode
+   the OneDrive path in `test_build.py`, so WIPEOUT/rotation/tag regressions fail CI. (~1 h)
+6. **Shared-part delete: cross-project warning** — deleting a shared part currently only checks
+   the open layout; warn when saved projects reference the `lib_key`. → R5
+7. **Orphaned lib-item cleanup on save** — drop project-local label-plate/custom lib items no
+   element references (they currently accumulate in the project jsonb). → R6
+8. **Docs refresh + `App.tsx` split** — guide/README predate categories 1–8/BOM/rail-line/toolbar;
+   App.tsx (~800 lines) wants splitting into Toolbar / LibrarySidebar / PropertiesPanel / modals.
 
 ## Backlog (deferred, in rough priority order)
 
-### 1. Multi-user safety (presence + overwrite guard)
-The tool is shared with **last-write-wins**, so two people editing the same project can silently
-clobber each other.
-- Show **"last saved by <name> at <time>"** on open and an **"opened by"** presence hint.
-- On Save, if the project's `updated_at` changed since load, **warn before overwriting**
-  (offer reload/merge/force). Cheap version: compare timestamps; richer: a `projects` realtime
-  presence channel.
-
-### 2. Audit log / activity trail
+### 1. Audit log / activity trail
 Record **who created / edited / saved** each project and when; a simple activity view.
 - New `project_events` table (project_id, actor, action, at) + RLS (members read, insert own).
-- Write an event on save/open; render a per-project timeline. Pairs naturally with #1.
+- Write an event on save/open; render a per-project timeline. Pairs naturally with the
+  multi-user-safety and revisions work above.
 
-### 3. Harden + custom domain
+### 2. Harden + custom domain
 - Settle the **final domain** before re-wiring OAuth (CLAUDE.md §6 — callbacks are per-domain).
 - Point Supabase OAuth redirect + Cloudflare Pages custom domain at it; tighten the service
   `ALLOWED_ORIGINS` / CORS and re-confirm the allowlist.
 - Full **end-to-end verification across two allow-listed teammates** (upload → shared library →
   cross-project reuse → secured export).
 
-### 4. Phase 3 — share-link + bundle (from CLAUDE.md §6)
+### 3. Phase 3 — share-link + bundle (from CLAUDE.md §6)
 - Read-only **share link** for a layout (view/print without edit).
 - **Bundle export** (layout JSON + referenced equipment DXFs) so an engineer isn't trapped if a
   free tier changes — "free + portable, every layer" (CLAUDE.md §5).
