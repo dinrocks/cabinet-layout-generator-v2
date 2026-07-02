@@ -8,6 +8,7 @@
 import type { LayoutModel, Element, Duct, Group, Label, Library } from "./types";
 import { libItemSize } from "./resolve";
 import { rotatedFootprint } from "./geometry";
+import { groupLayout } from "./sets";
 
 export type EntityKind = "element" | "duct" | "group" | "label";
 
@@ -190,12 +191,16 @@ export function stepTag(start: string, n: number): string {
   return `${prefix}${String(next).padStart(digits.length, "0")}`;
 }
 
-/** Add a Set (group of `count` identical parts, optionally auto-tagged). */
+/** Add a Set (group of `count` identical parts, optionally auto-tagged/capped). */
 export function addSet(
   model: LayoutModel,
   libKey: string,
   count: number,
-  opts: { internal_gap_mm?: number; tag_start?: string | null; tag_step?: number; x_mm?: number; y_mm?: number } = {},
+  opts: {
+    internal_gap_mm?: number; tag_start?: string | null; tag_step?: number;
+    x_mm?: number; y_mm?: number;
+    cap_start_key?: string | null; cap_end_key?: string | null;
+  } = {},
 ): { model: LayoutModel; id: string } {
   const id = uid("g");
   const sideDuct = model.ducts.find((d) => d.x_mm === 0);
@@ -203,6 +208,7 @@ export function addSet(
     id, kind: "set", lib_key: libKey, count: Math.max(1, Math.floor(count)),
     internal_gap_mm: opts.internal_gap_mm ?? model.defaults.gap_between_equipment_mm,
     tag_start: opts.tag_start ?? null, tag_step: opts.tag_step ?? 1,
+    cap_start_key: opts.cap_start_key ?? null, cap_end_key: opts.cap_end_key ?? null,
     x_mm: opts.x_mm ?? (sideDuct ? sideDuct.width_mm + 10 : 10),
     y_mm: opts.y_mm ?? 10, rot_deg: 0, exploded: false, label_id: null,
   };
@@ -217,23 +223,19 @@ export function addSet(
 export function explodeGroup(model: LayoutModel, groupId: string, library: Library): LayoutModel {
   const g = model.groups.find((x) => x.id === groupId);
   if (!g) return model;
-  const item = library[g.lib_key];
-  const size = item ? libItemSize(item) : { w: 10, h: 10 };
-  const fw = rotatedFootprint(size, g.rot_deg).w;
+  const layout = groupLayout(g, library);
+  if (!layout) return model;
 
-  const newEls: Element[] = [];
-  let x = g.x_mm;
-  for (let i = 0; i < g.count; i += 1) {
-    newEls.push({
-      id: uid("e"), lib_key: g.lib_key,
-      tag: g.tag_start ? stepTag(g.tag_start, i * g.tag_step) : "",
-      x_mm: +x.toFixed(2), y_mm: g.y_mm, rot_deg: g.rot_deg,
-      gap_before_mm: i === 0 ? model.defaults.gap_between_equipment_mm : g.internal_gap_mm,
-      clearance_to_duct_mm: model.defaults.clearance_equipment_to_duct_mm,
-      group_id: null, locked: false,
-    });
-    x += fw + g.internal_gap_mm;
-  }
+  // every piece (caps included) becomes an element at its laid-out position;
+  // members carry their auto-tags, caps stay untagged.
+  const newEls: Element[] = layout.pieces.map((p, i) => ({
+    id: uid("e"), lib_key: p.lib_key,
+    tag: p.kind === "member" && g.tag_start ? stepTag(g.tag_start, (p.index ?? 0) * g.tag_step) : "",
+    x_mm: p.x_mm, y_mm: p.y_mm, rot_deg: g.rot_deg,
+    gap_before_mm: i === 0 ? model.defaults.gap_between_equipment_mm : g.internal_gap_mm,
+    clearance_to_duct_mm: model.defaults.clearance_equipment_to_duct_mm,
+    group_id: null, locked: false,
+  }));
 
   const firstId = newEls[0]?.id;
   const labels = model.labels.map((l) =>

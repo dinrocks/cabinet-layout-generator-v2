@@ -17,6 +17,7 @@ import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { anchorHost, stepTag, type EntityKind } from "../model/edit";
+import { groupLayout } from "../model/sets";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
@@ -58,7 +59,9 @@ interface Props {
 
 type RowDimMeta = { index: number; value: number };
 
-type Meta = { id: string; kind: EntityKind };
+/** offX/offY: model-origin minus rect-origin, for entities whose interactive rect
+ *  is a bbox that doesn't start at the model position (a set with a rail-offset cap). */
+type Meta = { id: string; kind: EntityKind; offX?: number; offY?: number };
 
 const EQUIP_OPTS = {
   // Fabric v6 defaults origin to center; we position everything by its TOP-LEFT
@@ -236,7 +239,9 @@ export default function FabricStage(props: Props) {
         const boxH = (t.height ?? 0) * (t.scaleY ?? 1);
         ref.current.onResizeDuct(meta.id, +(t.left ?? 0).toFixed(2), +(t.top ?? 0).toFixed(2), boxW, boxH);
       } else {
-        ref.current.onMove(meta.kind, meta.id, +(t.left ?? 0).toFixed(2), +(t.top ?? 0).toFixed(2));
+        ref.current.onMove(meta.kind, meta.id,
+          +((t.left ?? 0) + (meta.offX ?? 0)).toFixed(2),
+          +((t.top ?? 0) + (meta.offY ?? 0)).toFixed(2));
       }
     });
     // wheel = zoom at cursor
@@ -355,27 +360,30 @@ export default function FabricStage(props: Props) {
 
     for (const g of model.groups) {
       const item = library[g.lib_key];
-      if (!item) continue;
-      const f = rotatedFootprint(libItemSize(item), g.rot_deg);
-      const total = g.count * f.w + (g.count - 1) * g.internal_gap_mm;
-      canvas.add(tag({ id: g.id, kind: "group" }, new Rect({
-        left: g.x_mm, top: g.y_mm, width: total, height: f.h,
+      const layout = groupLayout(g, library);
+      if (!item || !layout) continue;
+      // one interactive rect spanning the whole run (incl. caps) = the drag/select target
+      canvas.add(tag({ id: g.id, kind: "group", offX: +(g.x_mm - layout.bbox.x).toFixed(2), offY: +(g.y_mm - layout.bbox.y).toFixed(2) }, new Rect({
+        left: layout.bbox.x, top: layout.bbox.y, width: layout.bbox.w, height: layout.bbox.h,
         fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(g.id),
       })));
-      // auto-number each member in place (a set shows its tags without exploding)
-      if (g.tag_start) {
-        const cap = tagFontMm(item.band);
-        let gx = g.x_mm;
-        for (let i = 0; i < g.count; i += 1) {
-          const t = stepTag(g.tag_start, i * g.tag_step);
-          const th = Math.max(1.5, Math.min(cap, (0.92 * f.w) / (Math.max(1, t.length) * 0.62)));
+      // piece outlines (members + caps) + member auto-numbers, matching the exports
+      const capMm = tagFontMm(item.band);
+      for (const p of layout.pieces) {
+        canvas.add(new Rect({
+          left: p.x_mm, top: p.y_mm, width: p.w, height: p.h,
+          fill: "transparent", stroke: "#555", strokeWidth: 0.25,
+          selectable: false, evented: false, originX: "left", originY: "top",
+        }));
+        if (p.kind === "member" && g.tag_start) {
+          const t = stepTag(g.tag_start, (p.index ?? 0) * g.tag_step);
+          const th = Math.max(1.5, Math.min(capMm, (0.92 * p.w) / (Math.max(1, t.length) * 0.62)));
           canvas.add(new FabricText(t, {
             fontSize: th, fontFamily: "Arial", fill: "#111",
             selectable: false, evented: false,
             originX: "center", originY: "bottom",
-            left: gx + f.w / 2, top: g.y_mm - TAG_GAP_MM,
+            left: p.x_mm + p.w / 2, top: p.y_mm - TAG_GAP_MM,
           }));
-          gx += f.w + g.internal_gap_mm;
         }
       }
     }

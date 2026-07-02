@@ -83,6 +83,13 @@ export function validate(model: LayoutModel, library: Library): Issue[] {
     if (g.label_id && !model.labels.some((l) => l.id === g.label_id)) {
       add("error", "BAD_LABEL_REF", `group "${g.id}" references missing label "${g.label_id}"`, g.id);
     }
+    // optional caps must resolve like any part
+    if (g.cap_start_key && !library[g.cap_start_key]) {
+      add("error", "UNRESOLVED_LIB_KEY", `group "${g.id}" start cap "${g.cap_start_key}" not in library`, g.id);
+    }
+    if (g.cap_end_key && !library[g.cap_end_key]) {
+      add("error", "UNRESOLVED_LIB_KEY", `group "${g.id}" end cap "${g.cap_end_key}" not in library`, g.id);
+    }
   }
 
   // --- ducts: positive size, label-only height isolation handled by schema ---

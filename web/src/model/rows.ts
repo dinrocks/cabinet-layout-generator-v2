@@ -8,6 +8,7 @@ import type { LayoutModel, Duct, Library, Element } from "./types";
 import { rotatedFootprint } from "./geometry";
 import { libItemSize } from "./resolve";
 import { railOffsetWithinFootprint } from "./align";
+import { groupLayout } from "./sets";
 
 /** Margin (mm) reserved outside the plate for the row-dimension stack. */
 export const ROW_DIM_MARGIN_MM = 90;
@@ -187,7 +188,9 @@ function rowDevices(model: LayoutModel, library: Library, row: Row): RowDev[] {
     const item = library[g.lib_key];
     if (!item) continue;
     const f = rotatedFootprint(libItemSize(item), g.rot_deg);
-    if (inBand(g.y_mm, f.h)) out.push({ id: g.id, w: g.count * f.w + (g.count - 1) * g.internal_gap_mm, railOff: railOffsetWithinFootprint(item, g.rot_deg), clearance: model.defaults.clearance_equipment_to_duct_mm, gap: model.defaults.gap_between_equipment_mm, curX: g.x_mm });
+    const layout = groupLayout(g, library);
+    if (!layout) continue;
+    if (inBand(g.y_mm, f.h)) out.push({ id: g.id, w: layout.totalW, railOff: railOffsetWithinFootprint(item, g.rot_deg), clearance: model.defaults.clearance_equipment_to_duct_mm, gap: model.defaults.gap_between_equipment_mm, curX: g.x_mm });
   }
   return out.sort((a, b) => a.curX - b.curX);
 }

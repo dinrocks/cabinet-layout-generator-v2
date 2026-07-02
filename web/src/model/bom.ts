@@ -86,6 +86,9 @@ export function buildBom(model: LayoutModel, library: Library): Bom {
   for (const g of model.groups) {
     const tags = g.tag_start ? Array.from({ length: g.count }, (_, i) => stepTag(g.tag_start!, i * g.tag_step)) : [];
     tally(g.lib_key, g.count, tags);
+    // caps (end covers etc.) count as their own untagged parts, 1 per side
+    if (g.cap_start_key) tally(g.cap_start_key, 1, []);
+    if (g.cap_end_key) tally(g.cap_end_key, 1, []);
   }
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });

@@ -37,6 +37,8 @@ library = {
     "cust1": {"source": "rect", "name": "ACME-9", "width_mm": 60, "height_mm": 40, "custom": True},
     "stop_blue": {"source": "rect", "name": "Stopper", "width_mm": 8, "height_mm": 35},
     "lbl_x": {"source": "rect", "name": "", "width_mm": 8, "height_mm": 35, "label_plate": True},
+    # end cover for the capped-set case (shorter than the terminal, own rail line)
+    "cover": {"source": "rect", "name": "D-DS2.5", "width_mm": 2.2, "height_mm": 43.2, "rail_offset_mm": 21.6},
 }
 
 # 3) a tall-enclosure demo model (mirrors the web demo)
@@ -68,7 +70,8 @@ model = {
     "groups": [
         {"id": "g_term", "kind": "set", "lib_key": "term_degson_2c_2_5", "count": 12,
          "internal_gap_mm": 0.1, "x_mm": SD + 10, "y_mm": 320, "rot_deg": 0,
-         "tag_start": "B101", "tag_step": 1},
+         "tag_start": "B101", "tag_step": 1,
+         "cap_start_key": "cover", "cap_end_key": "cover"},
     ],
     "labels": [
         {"id": "L1", "text": "24VDC", "anchor": "group:g_term", "dx_mm": 0, "dy_mm": -6, "rot_deg": 0},
@@ -104,6 +107,22 @@ print("OK: labelled stopper masked by 1 wipeout, marker 'X1' on top")
 # a SET auto-numbers its members in place (no explode needed): B101..B112
 assert "B101" in texts and "B112" in texts, "set members are auto-tagged B101..B112"
 print("OK: un-exploded set is auto-numbered B101..B112")
+
+# the set's start/end caps are placed as their own countable blocks, rail-aligned
+assert by_block["EQ_cover"] == 2, "one end cover per side of the capped set"
+covers = [e for e in all_inserts if e.dxf.name == "EQ_cover"]
+terms = [e for e in all_inserts if e.dxf.name == "EQ_term_degson_2c_2_5"]
+# rail line (editor coords): members y=320 h=50 rail=345; cover rail_offset 21.6 →
+# cover top = 345-21.6 = 323.4 → DXF lower-left y = plate_h - (323.4 + 43.2)
+cover_ll_y = PLATE_H - (320 + 25 + 21.6)  # = plate_h - top - height, expanded
+for c in covers:
+    ext = bbox.extents([c], fast=False)
+    assert abs(ext.extmin.y - cover_ll_y) < 0.1, f"cover not rail-aligned: {ext.extmin.y} vs {cover_ll_y}"
+# start cap sits left of the first member
+first_term_x = min(bbox.extents([t], fast=False).extmin.x for t in terms)
+start_cap_x = min(bbox.extents([c], fast=False).extmin.x for c in covers)
+assert start_cap_x < first_term_x, "start cap left of the members"
+print("OK: capped set — 2 cover blocks, rail-aligned, flanking the members")
 
 # the two FC6A INSERTs must NOT overlap (rotated-anchor fix)
 fc6a = [e for e in all_inserts if e.dxf.name == "EQ_plc_idec_FC6A_D16"]

@@ -151,6 +151,7 @@
 .plabel { color: #555; }
 .pval { display: flex; align-items: center; gap: 6px; }
 .prow input[type="text"], .prow input[type="number"] { width: 110px; font-size: 12px; padding: 3px 5px; }
+.pval select { max-width: 150px; font-size: 12px; }
 .pval .ro { color: #111; }
 .pval button { font-size: 11px; padding: 2px 7px; border: 1px solid #ccc; background: #f4f4f4; border-radius: 4px; cursor: pointer; }
 .panel button.danger { font-size: 12px; padding: 6px 12px; border: 1px solid #c00; background: #fff; color: #c00; border-radius: 5px; cursor: pointer; }
@@ -164,6 +165,9 @@
 .addset-row label { font-size: 11px; color: #555; display: flex; align-items: center; gap: 4px; }
 .addset-row input { width: 56px; font-size: 12px; padding: 3px 4px; }
 .addset-row input[type="text"] { width: 64px; }
+/* optional start/end cap pickers (end covers etc.) */
+.addset-cap { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #555; margin-bottom: 6px; }
+.addset-cap select { flex: 1; margin-bottom: 0; }
 
 .ok { color: #1a7f37; font-size: 13px; }
 .issues { list-style: none; margin: 0; padding: 0; font-size: 12px; }

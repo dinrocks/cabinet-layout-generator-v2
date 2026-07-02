@@ -15,6 +15,7 @@ import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { rowDims, ROW_DIM_MARGIN_MM, detectRows } from "../model/rows";
 import { stepTag } from "../model/edit";
+import { groupLayout } from "../model/sets";
 
 export interface RenderOptions {
   /** Draw selection-free; exports use this. Defaults to a clean render. */
@@ -143,19 +144,18 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     parts.push(`</g>`);
   }
 
-  // groups (sets) — render members left→right with internal gap
+  // groups (sets) — caps + members laid out by groupLayout (single source)
   for (const g of model.groups) {
     const item = library[g.lib_key];
-    if (!item) continue;
-    const size = libItemSize(item);
-    const f = rotatedFootprint(size, g.rot_deg);
+    const layout = groupLayout(g, library);
+    if (!item || !layout) continue;
     parts.push(`<g data-id="${g.id}" data-layer="EQUIP">`);
-    let x = g.x_mm;
-    for (let i = 0; i < g.count; i += 1) {
-      parts.push(`<rect x="${x}" y="${g.y_mm}" width="${f.w}" height="${f.h}" fill="#fff" stroke="#222" stroke-width="0.3"/>`);
-      // auto-number each member in place (so a set shows its tags without exploding)
-      if (g.tag_start) parts.push(partTag(stepTag(g.tag_start, i * g.tag_step), x, g.y_mm, f.w, tagFontMm(item.band)));
-      x += f.w + g.internal_gap_mm;
+    for (const p of layout.pieces) {
+      parts.push(`<rect x="${p.x_mm}" y="${p.y_mm}" width="${p.w}" height="${p.h}" fill="#fff" stroke="#222" stroke-width="0.3"/>`);
+      // auto-number each member in place (caps stay untagged)
+      if (p.kind === "member" && g.tag_start) {
+        parts.push(partTag(stepTag(g.tag_start, (p.index ?? 0) * g.tag_step), p.x_mm, p.y_mm, p.w, tagFontMm(item.band)));
+      }
     }
     parts.push(`</g>`);
   }

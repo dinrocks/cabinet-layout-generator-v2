@@ -10,6 +10,7 @@
 import type { LayoutModel, Library } from "./types";
 import { rotatedFootprint, boxesOverlap, type Box } from "./geometry";
 import { libItemSize } from "./resolve";
+import { groupLayout } from "./sets";
 import type { EntityKind } from "./edit";
 
 export interface PlacedBox {
@@ -60,12 +61,11 @@ export function placedBoxes(model: LayoutModel, library: Library): PlacedBox[] {
 
   for (const g of model.groups) {
     const item = library[g.lib_key];
-    if (!item) continue;
-    const f = rotatedFootprint(libItemSize(item), g.rot_deg);
-    const total = g.count * f.w + (g.count - 1) * g.internal_gap_mm;
+    const layout = groupLayout(g, library);
+    if (!item || !layout) continue;
     out.push({
       kind: "group", id: g.id, label: `set ${item.name}`,
-      box: { x: g.x_mm, y: g.y_mm, w: total, h: f.h },
+      box: layout.bbox, // includes caps (which may be taller/offset from members)
     });
   }
 

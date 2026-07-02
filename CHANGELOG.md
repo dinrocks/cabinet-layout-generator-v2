@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — set caps (end covers) & insert-into-row
+- **Sets can start/end with a cap device** (e.g. a D-DS2.5 end cover on a DS2.5 strip): pick optional
+  **start/end** parts in the Add-a-set form, or add them to a **set already placed** (Set panel).
+  Caps are part of the set — they move/rotate/pack/delete with it, sit **rail-aligned** to the members,
+  count in the BOM (untagged, 1 per side), export as their own countable DXF blocks, and survive Explode.
+- **⇤⇥ Insert beside…** (element + set panels) replaces the shift+click-a-dozen-slim-parts workflow:
+  pick a part, side (left/right) and quantity in a small dialog — the row **shifts open automatically**
+  (downstream only; cluster spacing, whole sets and locked pairs preserved; locked parts stay put) and
+  the new part drops in flush, rail-aligned to the anchor. One undo step.
+- Editor canvas now draws each set member/cap outline (matching the exports), not just one blank box.
+
 ### Added — duplicate a project
 - **Duplicate** (toolbar, cloud) forks the **current** layout — including unsaved edits — into a brand-new
   project (prompts for a name, default "Copy of …"), then switches you onto the copy; the original row is

@@ -22,6 +22,8 @@ import { clampZoom } from "./editor/zoom";
 import UploadModal, { type BomMeta } from "./editor/UploadModal";
 import BomModal from "./editor/BomModal";
 import EditPartModal, { type PartEdit } from "./editor/EditPartModal";
+import InsertModal from "./editor/InsertModal";
+import { insertBeside } from "./model/insert";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
@@ -303,6 +305,7 @@ export default function App() {
   const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
   const [showBom, setShowBom] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
+  const [insertFor, setInsertFor] = useState<{ kind: "element" | "group"; id: string; name: string } | null>(null);
   const checkSvc = async () => {
     setSvc((s) => (s === "online" ? s : "checking"));
     setSvc((await ping()) ? "online" : "offline");
@@ -343,6 +346,18 @@ export default function App() {
   const [setLibKey, setSetLibKey] = useState("term_degson_2c_2_5");
   const [setCount, setSetCount] = useState(12);
   const [setTagStart, setSetTagStart] = useState("B101");
+  const [setCapStart, setSetCapStart] = useState(""); // "" = no cap
+  const [setCapEnd, setSetCapEnd] = useState("");
+
+  /** Insert part(s) beside the anchor, auto-shifting the row open (model/insert.ts). */
+  function doInsertBeside(libKey: string, side: "left" | "right", count: number) {
+    if (!insertFor) return;
+    const r = insertBeside(model, library, { kind: insertFor.kind, id: insertFor.id }, side, libKey, count);
+    setInsertFor(null);
+    if (!r) { setStatus({ kind: "error", message: "Couldn't insert — part or anchor not found." }); return; }
+    set(r.model);
+    setSelections([{ id: r.ids[0], kind: "element" }]);
+  }
 
   function addPartLabel(kind: "element" | "group", refId: string) {
     const { model: m2, id } = addLabel(model, kind, refId);
@@ -350,7 +365,11 @@ export default function App() {
     setSelections([{ id, kind: "label" }]);
   }
   function doAddSet() {
-    const { model: m2, id } = addSet(model, setLibKey, setCount, { tag_start: setTagStart || null });
+    const { model: m2, id } = addSet(model, setLibKey, setCount, {
+      tag_start: setTagStart || null,
+      cap_start_key: setCapStart || null,
+      cap_end_key: setCapEnd || null,
+    });
     set(m2);
     setSelections([{ id, kind: "group" }]);
   }
@@ -702,6 +721,21 @@ export default function App() {
             <label>× <input type="number" min={1} value={setCount} onChange={(e) => setSetCount(Math.max(1, parseInt(e.target.value) || 1))} /></label>
             <label>tag <input type="text" value={setTagStart} onChange={(e) => setSetTagStart(e.target.value)} placeholder="B101" /></label>
           </div>
+          {/* optional caps flanking the run (e.g. an end cover on a terminal strip) */}
+          <label className="addset-cap">start
+            <select value={setCapStart} onChange={(e) => setSetCapStart(e.target.value)}>
+              <option value="">— none —</option>
+              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
+            </select>
+          </label>
+          <label className="addset-cap">end
+            <select value={setCapEnd} onChange={(e) => setSetCapEnd(e.target.value)}>
+              <option value="">— none —</option>
+              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
+            </select>
+          </label>
           <button type="button" className="lib-item" onClick={doAddSet}>Add set ×{setCount}</button>
         </div>
 
@@ -768,6 +802,8 @@ export default function App() {
               </>
             )}
             <div className="panel-actions">
+              <button type="button" title="Insert a part beside this one — the row shifts open automatically"
+                onClick={() => setInsertFor({ kind: "element", id: selEl.id, name: library[selEl.lib_key]?.name ?? selEl.lib_key })}>⇤⇥ Insert beside…</button>
               {STOPPER_BANDS.has(library[selEl.lib_key]?.band ?? -1) && (
                 <button type="button" title="Drop a same-size label plate on this stopper (locked pair)" onClick={addLabelPlate}>Add label plate</button>
               )}
@@ -799,7 +835,24 @@ export default function App() {
             <Num label="Count" value={selGroup.count} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, count: Math.max(1, Math.floor(v)) } : g) })} />
             <Num label="Internal gap (mm)" value={selGroup.internal_gap_mm} step={0.1} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, internal_gap_mm: v } : g) })} />
             <Row label="Rotation"><span className="ro">{selGroup.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
+            {/* caps flanking the run (end covers etc.) — editable on an existing set */}
+            <Row label="Start cap">
+              <select value={selGroup.cap_start_key ?? ""} onChange={(e) => set(updateGroup(model, selGroup.id, { cap_start_key: e.target.value || null }))}>
+                <option value="">— none —</option>
+                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                  .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
+              </select>
+            </Row>
+            <Row label="End cap">
+              <select value={selGroup.cap_end_key ?? ""} onChange={(e) => set(updateGroup(model, selGroup.id, { cap_end_key: e.target.value || null }))}>
+                <option value="">— none —</option>
+                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                  .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
+              </select>
+            </Row>
             <div className="panel-actions">
+              <button type="button" title="Insert a part beside this set — the row shifts open automatically"
+                onClick={() => setInsertFor({ kind: "group", id: selGroup.id, name: `set ${library[selGroup.lib_key]?.name ?? selGroup.lib_key}` })}>⇤⇥ Insert beside…</button>
               <button type="button" onClick={() => addPartLabel("group", selGroup.id)}>+ Label</button>
               <button type="button" onClick={() => { set(explodeGroup(model, selGroup.id, library)); setSelections([]); }}>Explode</button>
               <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
@@ -873,6 +926,11 @@ export default function App() {
       {editKey && library[editKey] && (
         <EditPartModal item={library[editKey]} shared={!!sharedLib[editKey]}
           onSave={(p) => saveLibraryPart(editKey, p)} onCancel={() => setEditKey(null)} />
+      )}
+
+      {insertFor && (
+        <InsertModal library={library} anchorName={insertFor.name}
+          onInsert={doInsertBeside} onCancel={() => setInsertFor(null)} />
       )}
 
       {rowEdit && (

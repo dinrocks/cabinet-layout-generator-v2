@@ -88,6 +88,20 @@ describe("buildBom", () => {
     expect(bom.totalParts).toBe(1 + 12 + 2 + 2 + 1); // psu + relays + stoppers + labels + custom = 18
   });
 
+  it("counts a set's caps as their own untagged parts (1 per side)", () => {
+    const lib: Library = {
+      ...LIB,
+      cover: { lib_key: "cover", source: "rect", name: "D-DS2.5", band: 4, width_mm: 2.2, height_mm: 43 },
+    };
+    const m = model();
+    m.groups = [{ ...set("g_relay", "relay", 12), cap_start_key: "cover", cap_end_key: "cover" }];
+    const bom = buildBom(m, lib);
+    const cover = row(bom, "cover");
+    expect(cover.qty).toBe(2); // start + end
+    expect(itemNo(cover)).toBe("-"); // untagged
+    expect(row(bom, "relay").qty).toBe(12); // members unchanged
+  });
+
   it("ignores unresolved lib_keys (validate() flags those separately)", () => {
     const m = model();
     m.elements.push(el("e_ghost", "does_not_exist"));

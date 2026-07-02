@@ -78,6 +78,14 @@ export interface Group {
   lib_key: string;
   count: number;
   internal_gap_mm: number;
+  /**
+   * Optional cap devices flanking the run (e.g. a D-DS2.5 end cover on a DS2.5
+   * terminal strip). Part of the set: they move/rotate/delete/pack with it, count
+   * in the BOM (untagged), and export as their own DXF blocks. Rail-aligned to
+   * the members. Null/undefined = no cap on that side.
+   */
+  cap_start_key?: string | null;
+  cap_end_key?: string | null;
   /** Optional auto-tag sequence, e.g. "B101". */
   tag_start: string | null;
   tag_step: number;

@@ -297,7 +297,29 @@ class DxfAssembler:
         if item.get("custom") and name:
             self._text(name, x + fw / 2, y_top + fh / 2, _fit_font(name, fw, fh))
 
+    def _block_for(self, lib_key: str, item: dict[str, Any]) -> str:
+        """The named block for a part — imported DXF geometry or a unit rect."""
+        if item["source"] == "dxf" and item.get("block_ref"):
+            return self._import_block(lib_key, item["block_ref"])
+        return self._unit_block(lib_key, float(item["width_mm"]), float(item["height_mm"]))
+
+    @staticmethod
+    def _rail_off(item: dict[str, Any], rot: float) -> float:
+        """Distance from the (rotated) footprint TOP to the DIN-rail line.
+        Mirrors railOffsetWithinFootprint in web/src/model/align.ts."""
+        w, h = float(item["width_mm"]), float(item["height_mm"])
+        off = float(item.get("rail_offset_mm") or h / 2)
+        a = rot % 360
+        if a == 0:
+            return off
+        if a == 180:
+            return h - off
+        _fw, fh = rotated_footprint(w, h, rot)
+        return fh / 2  # 90/270: rail concept doesn't rotate cleanly — use centre
+
     def _place_group(self, g: dict[str, Any]) -> None:
+        """A set: optional start cap, N members, optional end cap — laid out and
+        rail-aligned exactly like web/src/model/sets.ts groupLayout()."""
         item = self.library.get(g["lib_key"])
         if item is None:
             return
@@ -307,9 +329,25 @@ class DxfAssembler:
         x = float(g["x_mm"])
         y_top = float(g["y_mm"])
         gap = float(g.get("internal_gap_mm", 0.1))
-        block_name = (self._import_block(g["lib_key"], item["block_ref"])
-                      if item["source"] == "dxf" and item.get("block_ref")
-                      else self._unit_block(g["lib_key"], w, h))
+        member_rail = self._rail_off(item, rot)
+        rail_y = y_top + member_rail
+
+        def place_cap(key: object) -> float:
+            """Place a cap at the cursor (rail-aligned); returns its footprint width."""
+            cap_item = self.library.get(key) if key else None
+            if not cap_item:
+                return 0.0
+            cw, ch = float(cap_item["width_mm"]), float(cap_item["height_mm"])
+            cfw, _cfh = rotated_footprint(cw, ch, rot)
+            cap_y = rail_y - self._rail_off(cap_item, rot)
+            self._place_block(self._block_for(str(key), cap_item), cw, ch, x, cap_y, rot)
+            return cfw
+
+        cap_w = place_cap(g.get("cap_start_key"))
+        if cap_w:
+            x += cap_w + gap
+
+        block_name = self._block_for(g["lib_key"], item)
         tag_start = g.get("tag_start")
         tag_step = int(g.get("tag_step", 1))
         cap = TAG_FONT_TERMINAL_MM if item.get("band") == TERMINAL_BAND else TAG_FONT_MM
@@ -322,6 +360,8 @@ class DxfAssembler:
                 tag_h = max(1.5, min(cap, (0.92 * fw) / (max(1, len(tag)) * 0.62)))
                 self._text(tag, x + fw / 2, y_top - TAG_GAP_MM, tag_h, align=bc)
             x += fw + gap
+
+        place_cap(g.get("cap_end_key"))
 
     def _place_duct(self, d: dict[str, Any]) -> None:
         horizontal = float(d.get("rot_deg", 0)) % 180 == 0
