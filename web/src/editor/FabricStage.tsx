@@ -18,6 +18,7 @@ import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { anchorHost, stepTag, type EntityKind } from "../model/edit";
 import { groupLayout } from "../model/sets";
+import { marqueeSelect } from "../model/marquee";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
@@ -47,6 +48,8 @@ interface Props {
   onSelectEntity: (meta: Selection, additive: boolean) => void;
   /** Clicked empty space — clear the selection. */
   onClearSelection: () => void;
+  /** Shift+drag rubber-band finished — add these to the selection (union). */
+  onMarquee: (sels: Selection[]) => void;
   onMove: (kind: EntityKind, id: string, x_mm: number, y_mm: number) => void;
   onZoomChange: (zoom: number) => void;
   /** Duct resized by dragging an edge: new top-left + new box size (mm). */
@@ -255,10 +258,17 @@ export default function FabricStage(props: Props) {
       ref.current.onZoomChange(next); // App state stays in sync; effect below no-ops
     });
 
-    // drag empty space = pan
+    // drag empty space = pan; SHIFT+drag empty space = marquee (rubber-band select)
     let panning = false;
     let lastX = 0;
     let lastY = 0;
+    // marquee state: start point in scene (mm) coords + the overlay rect
+    let marqueeFrom: { x: number; y: number } | null = null;
+    let marqueeRect: Rect | null = null;
+    const sceneXY = (e: MouseEvent) => {
+      const p = canvas.getScenePoint(e);
+      return { x: p.x, y: p.y };
+    };
     canvas.on("mouse:down", (opt) => {
       const rd = (opt.target as unknown as { rowdim?: RowDimMeta })?.rowdim;
       if (rd) {
@@ -272,16 +282,43 @@ export default function FabricStage(props: Props) {
         ref.current.onSelectEntity(meta, !!(opt.e as MouseEvent).shiftKey);
       }
       if (!opt.target) {
+        const ev = opt.e as MouseEvent;
+        if (ev.shiftKey) {
+          // start the rubber-band; selection is added on mouse:up (union)
+          marqueeFrom = sceneXY(ev);
+          return;
+        }
         ref.current.onClearSelection();
         panning = true;
         canvas.setCursor("grabbing");
-        lastX = (opt.e as MouseEvent).clientX;
-        lastY = (opt.e as MouseEvent).clientY;
+        lastX = ev.clientX;
+        lastY = ev.clientY;
       }
     });
     canvas.on("mouse:move", (opt) => {
-      if (!panning) return;
       const e = opt.e as MouseEvent;
+      if (marqueeFrom) {
+        const cur = sceneXY(e);
+        // CAD convention hint: L→R window = solid blue, R→L crossing = dashed green
+        const crossing = cur.x < marqueeFrom.x;
+        if (!marqueeRect) {
+          marqueeRect = new Rect({
+            selectable: false, evented: false, originX: "left", originY: "top",
+            strokeUniform: true, strokeWidth: 1,
+          });
+          canvas.add(marqueeRect);
+        }
+        marqueeRect.set({
+          left: Math.min(marqueeFrom.x, cur.x), top: Math.min(marqueeFrom.y, cur.y),
+          width: Math.abs(cur.x - marqueeFrom.x), height: Math.abs(cur.y - marqueeFrom.y),
+          fill: crossing ? "rgba(26,127,55,0.08)" : "rgba(47,111,237,0.08)",
+          stroke: crossing ? "#1a7f37" : "#2f6fed",
+          strokeDashArray: crossing ? [4, 3] : undefined,
+        });
+        canvas.requestRenderAll();
+        return;
+      }
+      if (!panning) return;
       const vpt = canvas.viewportTransform;
       vpt[4] += e.clientX - lastX;
       vpt[5] += e.clientY - lastY;
@@ -289,7 +326,24 @@ export default function FabricStage(props: Props) {
       lastX = e.clientX;
       lastY = e.clientY;
     });
-    canvas.on("mouse:up", () => { panning = false; clearGuides(); canvas.requestRenderAll(); });
+    canvas.on("mouse:up", (opt) => {
+      if (marqueeFrom) {
+        const to = sceneXY(opt.e as MouseEvent);
+        if (marqueeRect) { canvas.remove(marqueeRect); marqueeRect = null; }
+        // ignore a shift+click without a drag (< 2mm) — that's entity toggling
+        if (Math.abs(to.x - marqueeFrom.x) > 2 || Math.abs(to.y - marqueeFrom.y) > 2) {
+          ref.current.onMarquee(
+            marqueeSelect(ref.current.model, ref.current.library, marqueeFrom.x, marqueeFrom.y, to.x, to.y),
+          );
+        }
+        marqueeFrom = null;
+        canvas.requestRenderAll();
+        return;
+      }
+      panning = false;
+      clearGuides();
+      canvas.requestRenderAll();
+    });
 
     // also attempt right after layout, in case ResizeObserver hasn't ticked yet
     requestAnimationFrame(() => { sizeToWrap(); tryInitialFit(); });

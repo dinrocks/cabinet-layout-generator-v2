@@ -24,6 +24,7 @@ import BomModal from "./editor/BomModal";
 import EditPartModal, { type PartEdit } from "./editor/EditPartModal";
 import InsertModal from "./editor/InsertModal";
 import { insertBeside } from "./model/insert";
+import { selectRow } from "./model/marquee";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
@@ -436,6 +437,16 @@ export default function App() {
         e.preventDefault();
         const stepMm = e.shiftKey ? 10 : 1; // Shift = coarse (10mm), otherwise 1mm
         nudge(arrows[e.key][0] * stepMm, arrows[e.key][1] * stepMm);
+      } else if (e.key === "Escape" && selections.length) {
+        setSelections([]);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        // select every device + label (ducts excluded — same rule as the marquee)
+        e.preventDefault();
+        setSelections([
+          ...model.elements.map((el) => ({ id: el.id, kind: "element" as const })),
+          ...model.groups.map((g) => ({ id: g.id, kind: "group" as const })),
+          ...model.labels.map((l) => ({ id: l.id, kind: "label" as const })),
+        ]);
       }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
@@ -750,6 +761,10 @@ export default function App() {
             selectedIds={selectedIds}
             onSelectEntity={selectEntity}
             onClearSelection={() => setSelections([])}
+            onMarquee={(sels) => setSelections((prev) => {
+              const seen = new Set(prev.map((s) => s.id));
+              return [...prev, ...sels.filter((s) => !seen.has(s.id))]; // union (additive sweeps)
+            })}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
             onZoomChange={setZoom}
             onResizeDuct={resizeDuct}
@@ -763,7 +778,10 @@ export default function App() {
         {multi ? (
           <>
             <h3>{selections.length} objects selected</h3>
-            <p className="muted small">Shift-click to add/remove. Use arrow keys to nudge (Shift = 10mm), or delete them all.</p>
+            <p className="muted small">
+              Shift+drag to sweep more (left→right = fully inside; right→left = touching), Shift-click to
+              add/remove one, Ctrl+A = all, Esc = clear. Arrow keys nudge (Shift = 10mm), Delete removes all.
+            </p>
             <button type="button" className="danger" onClick={deleteSelected}>Delete {selections.length} objects</button>
           </>
         ) : selEl ? (
@@ -804,6 +822,8 @@ export default function App() {
             <div className="panel-actions">
               <button type="button" title="Insert a part beside this one — the row shifts open automatically"
                 onClick={() => setInsertFor({ kind: "element", id: selEl.id, name: library[selEl.lib_key]?.name ?? selEl.lib_key })}>⇤⇥ Insert beside…</button>
+              <button type="button" title="Select every device on this rail line (then arrow-nudge or delete the pack)"
+                onClick={() => setSelections(selectRow(model, library, { id: selEl.id, kind: "element" }))}>⬌ Select row</button>
               {STOPPER_BANDS.has(library[selEl.lib_key]?.band ?? -1) && (
                 <button type="button" title="Drop a same-size label plate on this stopper (locked pair)" onClick={addLabelPlate}>Add label plate</button>
               )}
@@ -853,6 +873,8 @@ export default function App() {
             <div className="panel-actions">
               <button type="button" title="Insert a part beside this set — the row shifts open automatically"
                 onClick={() => setInsertFor({ kind: "group", id: selGroup.id, name: `set ${library[selGroup.lib_key]?.name ?? selGroup.lib_key}` })}>⇤⇥ Insert beside…</button>
+              <button type="button" title="Select every device on this rail line (then arrow-nudge or delete the pack)"
+                onClick={() => setSelections(selectRow(model, library, { id: selGroup.id, kind: "group" }))}>⬌ Select row</button>
               <button type="button" onClick={() => addPartLabel("group", selGroup.id)}>+ Label</button>
               <button type="button" onClick={() => { set(explodeGroup(model, selGroup.id, library)); setSelections([]); }}>Explode</button>
               <button type="button" className="danger" onClick={deleteSelected}>Delete</button>

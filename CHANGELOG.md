@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — bulk selection (marquee, select-row, Ctrl+A)
+- **Shift+drag rubber-band selection** with the CAD window/crossing rule: drag **left→right** (solid
+  blue) selects only what's **fully inside**; **right→left** (dashed green) selects anything **touched**
+  — GstarCAD muscle memory. Sweeps are additive (union), plain drag still pans, and the box picks up
+  devices + labels only (never wire ducts).
+- **⬌ Select row** (element/set panels) — one click selects every device sharing the anchor's DIN-rail
+  line, plus their labels; then arrow-nudge or delete the pack. No more shift+clicking 100 objects.
+- **Ctrl+A** selects all devices+labels; **Esc** clears the selection.
+
 ### Added — set caps (end covers) & insert-into-row
 - **Sets can start/end with a cap device** (e.g. a D-DS2.5 end cover on a DS2.5 strip): pick optional
   **start/end** parts in the Add-a-set form, or add them to a **set already placed** (Set panel).
