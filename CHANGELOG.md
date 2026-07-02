@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — multi-user safety (RISK_REVIEW R3)
+- **Stale-save guard** — projects are team-shared with last-write-wins, so two people could silently
+  clobber each other. Save now does a **compare-and-set** against the version you opened; if someone
+  saved in between, you're warned (**"⚠ <name> saved this at <time>, after you opened it"**) and choose
+  to **overwrite** or **keep your work unsaved** (nothing lost — you can ⬇ download or Open theirs).
+- **"saved by <name> <when>"** shows in the top bar (after open/save) and on every row of the Open list,
+  so you can see who touched a layout last before you edit it.
+
 ### Added — unsaved-changes guard (RISK_REVIEW R2)
 - **You can no longer silently lose work.** The editor tracks unsaved changes (an **"● unsaved"**
   chip shows in the toolbar) and warns before every discard path: closing/reloading the tab

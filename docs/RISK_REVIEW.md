@@ -67,16 +67,19 @@ next launch offers a restore (deferred until the shared catalog loads so validat
 shared parts), and a restored draft **stays dirty** until actually saved. The JSON ⬇ download
 also marks clean (it *is* the local-mode save). Draft is best-effort (quota errors swallowed).
 
-### R3 — Concurrent edits silently clobber (last-write-wins)
+### R3 — Concurrent edits silently clobber (last-write-wins)  ✅ FIXED
 
 **Why.** Two people can open the same project; whoever saves last wins, silently. Distinct from
-R1 (bad single save) — this is the *concurrent* case, and it will happen more as the team grows.
+R1 (bad single save) — this is the *concurrent* case, and it grows with the team.
 
-**How (planned as the next slice).** On open, remember `updated_at`; on save, compare against the
-server row. If it changed since load → warn: "Saved by <name> at <time> after you opened — Reload /
-Save anyway". Show **"last saved by <name>, <time>"** in the top bar and the Open list (columns
-`updated_by`/`updated_at` already exist in the schema). Optional later: Supabase realtime presence
-("<name> has this open").
+**How it was fixed.** `loadProject` returns the row's `updated_at` as a base; `saveProject` does a
+**compare-and-set** (`update(...).eq("id", id).eq("updated_at", base)`) — atomic, no TOCTOU race.
+If 0 rows match and the row still exists, it's a conflict: the store returns
+`{ conflict: { updatedAt, updatedByName } }` and the UI warns "⚠ <name> saved this at <time>, after
+you opened it" with **overwrite** (re-save using the server's version as the new base) or **abort**
+(keep editing, nothing saved/lost). **"saved by <name> <when>"** shows in the top bar and every Open
+row (embeds `profiles!projects_updated_by_fkey`). Restored drafts save unconditionally (base is null)
+— an accepted edge case. Not yet done (optional): realtime presence ("<name> has this open now").
 
 ### R4 — The DXF service accepts unbounded uploads
 
@@ -147,7 +150,7 @@ references — self-healing for existing projects. Alternatively clean up in `de
 | # | Item | Fixes | Effort |
 |---|------|-------|--------|
 | 1 | ✅ `beforeunload` dirty-guard (+ localStorage draft) — shipped 2026-07-02 | R2 | done |
-| 2 | Multi-user safety: last-saved-by + stale-save warning | R3 | ~½ day |
+| 2 | ✅ Multi-user safety: last-saved-by + stale-save warning — shipped 2026-07-02 | R3 | done |
 | 3 | Project revisions (last ~20 saves) + nightly backup Action | R1 | ~½ day |
 | 4 | Upload size cap on the service | R4 | minutes |
 | 5 | Sample DXF in repo → full assembler harness in CI | CI gap | ~1 h |

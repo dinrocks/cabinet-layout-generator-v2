@@ -39,6 +39,15 @@ type Upload =
   | { status: "confirm"; result: UploadResult; name: string }
   | { status: "error"; message: string };
 
+/** Compact relative time for the "saved by … <when>" chip ("just now", "5m", "2h", or a date). */
+function timeAgo(iso: string): string {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export default function App() {
   const { model, set, undo, redo, canUndo, canRedo } = useHistory(newModel("Untitled", "tall_floor"));
   const [library, setLibrary] = useState<Library>(() => ({})); // empty; populated by uploads
@@ -59,6 +68,8 @@ export default function App() {
   const auth = useAuth();
   const ready = auth.status === "ready"; // signed in + allow-listed
   const [projectId, setProjectId] = useState<string | null>(null); // cloud row id of the open project
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<string | null>(null); // loaded server version (stale-save guard)
+  const [lastSaved, setLastSaved] = useState<{ name: string | null; at: string } | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
   const [cloudBusy, setCloudBusy] = useState(false);
@@ -110,7 +121,7 @@ export default function App() {
    *  `keepDirty` is for restoring a DRAFT: the restored state is still unsaved work,
    *  so it must stay dirty (leave-warning + draft keep refreshing) until a real save. */
   function applyLoaded(m: LayoutModel | undefined, projectLocalLib: Library, cloudId: string | null,
-    opts: { keepDirty?: boolean } = {}): boolean {
+    opts: { keepDirty?: boolean; meta?: { updatedAt: string; updatedByName: string | null } } = {}): boolean {
     if (!m || !m.project || !m.plate || !Array.isArray(m.elements)) {
       setStatus({ kind: "error", message: "That file isn't a valid layout." });
       return false;
@@ -122,6 +133,9 @@ export default function App() {
     set(m);
     setSelections([]);
     setProjectId(cloudId);
+    // remember the loaded server version (null for a local file / draft → no guard)
+    setBaseUpdatedAt(opts.meta?.updatedAt ?? null);
+    setLastSaved(opts.meta ? { name: opts.meta.updatedByName, at: opts.meta.updatedAt } : null);
     if (!opts.keepDirty) {
       // same serialization as the `snapshot` memo, built from the adopted values
       setCleanSnap(JSON.stringify({ m, l: projectLocal(lib, sharedKeys) }));
@@ -160,24 +174,41 @@ export default function App() {
     const res = await loadProject(id);
     setCloudBusy(false);
     if (!res) { setStatus({ kind: "error", message: "Couldn't load that layout." }); return; }
-    if (applyLoaded(res.model, res.library, id)) {
+    if (applyLoaded(res.model, res.library, id, { meta: { updatedAt: res.updatedAt, updatedByName: res.updatedByName } })) {
       setProjectsOpen(false);
       setStatus({ kind: "done", label: "Opened" });
     }
   }
 
-  async function doSaveCloud() {
+  const doSaveCloud = () => saveCloud(baseUpdatedAt);
+
+  /** Save to the cloud, guarding against a stale overwrite. `base` = the version we
+   *  believe is on the server; on a conflict the user can overwrite (re-save with the
+   *  server's version as the new base) or abort (keep editing, nothing lost). */
+  async function saveCloud(base: string | null) {
     if (!ready || !auth.profile) return;
     setCloudBusy(true);
-    const r = await saveProject(model, library, sharedKeys, auth.profile.id, projectId);
+    const r = await saveProject(model, library, sharedKeys, auth.profile.id, projectId, base);
     setCloudBusy(false);
-    if ("error" in r) setStatus({ kind: "error", message: `Save failed: ${r.error}` });
-    else {
-      setProjectId(r.id);
-      setStatus({ kind: "done", label: "Saved" });
-      setCleanSnap(snapshot); // what we just saved is the new clean baseline
-      clearDraft();
+    if ("error" in r) { setStatus({ kind: "error", message: `Save failed: ${r.error}` }); return; }
+    if ("conflict" in r) {
+      const who = r.conflict.updatedByName || "someone";
+      const when = new Date(r.conflict.updatedAt).toLocaleString();
+      const overwrite = window.confirm(
+        `⚠ "${who}" saved this project at ${when}, after you opened it.\n\n` +
+        `OK  = overwrite their version with yours (their changes are lost).\n` +
+        `Cancel = keep your work in the editor without saving — you can ⬇ download it, or Open theirs.`,
+      );
+      if (overwrite) await saveCloud(r.conflict.updatedAt); // base now matches → succeeds
+      else setStatus({ kind: "error", message: `Not saved — ${who} has a newer version.` });
+      return;
     }
+    setProjectId(r.id);
+    setBaseUpdatedAt(r.updatedAt);
+    setLastSaved({ name: auth.profile.display_name || auth.email, at: r.updatedAt });
+    setStatus({ kind: "done", label: "Saved" });
+    setCleanSnap(snapshot); // what we just saved is the new clean baseline
+    clearDraft();
   }
 
   async function doDeleteCloud(id: string) {
@@ -491,6 +522,11 @@ export default function App() {
               onChange={(e) => renameProject(e.target.value)} aria-label="Project name" />
           </span>
           {" · "}{model.plate.width_mm}×{model.plate.height_mm} mm
+          {lastSaved && (
+            <span className="savedby" title={`Last saved ${new Date(lastSaved.at).toLocaleString()}`}>
+              {" · saved by "}{lastSaved.name || "—"} {timeAgo(lastSaved.at)}
+            </span>
+          )}
         </span>
 
         <div className="toolbar">
@@ -821,7 +857,7 @@ export default function App() {
                   <li key={p.id}>
                     <button type="button" className="plist-open" disabled={cloudBusy} onClick={() => doOpenCloud(p.id)}>
                       <span className="pn">{p.name || "Untitled"}</span>
-                      <span className="pm">{p.owner_name ?? "—"} · {new Date(p.updated_at).toLocaleString()}</span>
+                      <span className="pm" title={new Date(p.updated_at).toLocaleString()}>saved by {p.updated_by_name ?? p.owner_name ?? "—"} · {timeAgo(p.updated_at)}</span>
                     </button>
                     <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
                   </li>

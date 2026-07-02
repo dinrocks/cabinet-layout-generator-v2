@@ -82,6 +82,8 @@
   border: none; background: transparent; outline: none; padding: 2px 0; width: 180px;
 }
 .projname::placeholder { color: #b6bcc6; font-weight: 400; }
+/* "saved by <name> <when>" note in the top bar */
+.savedby { color: #9aa3af; }
 
 /* projects "Open" modal list */
 .plist { list-style: none; margin: 8px 0 0; padding: 0; max-height: 50vh; overflow: auto; }

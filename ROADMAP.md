@@ -40,8 +40,9 @@ failure stories) lives in the review doc; this is the build order:
 1. ✅ **Unsaved-changes guard** — DONE (2026-07-02): dirty tracking via save-snapshot comparison,
    "● unsaved" chip, `beforeunload` warning, confirm on New/**Open** (Open previously discarded
    silently), and a crash-safe localStorage draft with restore-on-launch. → R2
-2. **Multi-user safety** — "last saved by <name> at <time>" on open/top bar; on Save, warn if the
-   server row changed since load (Reload / Save anyway). The concurrent-clobber guard. (~½ day) → R3
+2. ✅ **Multi-user safety** — DONE (2026-07-02): "saved by <name> <when>" in the top bar + Open list;
+   Save is a compare-and-set against the opened version and warns (overwrite / keep unsaved) on a
+   conflict. The concurrent-clobber guard. → R3
 3. **Project revisions + backup** — `project_revisions` table keeping the last ~20 saves per
    project (restorable from the Open dialog) + a nightly GitHub-Action dump of the projects table.
    Turns "drawing gone forever after one bad save" into "restore a revision". (~½ day) → R1
