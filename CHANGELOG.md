@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — duplicate a project
+- **Duplicate** (toolbar, cloud) forks the **current** layout — including unsaved edits — into a brand-new
+  project (prompts for a name, default "Copy of …"), then switches you onto the copy; the original row is
+  left untouched. A clean "branch my work" without saving over the original.
+- **⧉ per row in the Open dialog** copies a **saved** project into a new one *without opening it* (for
+  template copies). Both reuse the normal insert path — no schema change; project-local parts ride along,
+  shared parts stay shared.
+
 ### Added — multi-user safety (RISK_REVIEW R3)
 - **Stale-save guard** — projects are team-shared with last-write-wins, so two people could silently
   clobber each other. Save now does a **compare-and-set** against the version you opened; if someone

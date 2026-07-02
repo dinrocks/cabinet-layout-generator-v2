@@ -211,6 +211,45 @@ export default function App() {
     clearDraft();
   }
 
+  /** Fork the CURRENT editor state (incl. unsaved edits) into a new cloud project and
+   *  switch onto the copy — the original row is left untouched. */
+  async function doDuplicateCurrent() {
+    if (!ready || !auth.profile) return;
+    const input = window.prompt("Name for the copy", `Copy of ${model.project.name || "Untitled"}`);
+    if (input == null) return; // cancelled
+    const name = input.trim() || `Copy of ${model.project.name || "Untitled"}`;
+    const copy = { ...model, project: { ...model.project, name } };
+    setCloudBusy(true);
+    const r = await saveProject(copy, library, sharedKeys, auth.profile.id, null, null); // null id → insert
+    setCloudBusy(false);
+    if ("error" in r) { setStatus({ kind: "error", message: `Copy failed: ${r.error}` }); return; }
+    if ("conflict" in r) return; // impossible on insert, but keeps the union exhaustive
+    set(copy); // adopt the renamed model; editor is now on the copy
+    setProjectId(r.id);
+    setBaseUpdatedAt(r.updatedAt);
+    setLastSaved({ name: auth.profile.display_name || auth.email, at: r.updatedAt });
+    setStatus({ kind: "done", label: "Duplicated" });
+    setCleanSnap(JSON.stringify({ m: copy, l: projectLocal(library, sharedKeys) })); // the saved copy is clean
+    clearDraft();
+  }
+
+  /** Copy a saved project (from the Open list) into a new row WITHOUT opening it. */
+  async function doDuplicateFromList(p: ProjectSummary) {
+    if (!auth.profile) return;
+    const input = window.prompt("Name for the copy", `Copy of ${p.name || "Untitled"}`);
+    if (input == null) return;
+    const name = input.trim() || `Copy of ${p.name || "Untitled"}`;
+    setCloudBusy(true);
+    const src = await loadProject(p.id);
+    if (!src) { setCloudBusy(false); setStatus({ kind: "error", message: "Couldn't read that layout to copy." }); return; }
+    const copy = { ...src.model, project: { ...src.model.project, name } };
+    const r = await saveProject(copy, src.library, sharedKeys, auth.profile.id, null, null);
+    setCloudBusy(false);
+    if ("error" in r || "conflict" in r) { setStatus({ kind: "error", message: "Copy failed." }); return; }
+    setStatus({ kind: "done", label: "Copied" });
+    setProjectList(await listProjects()); // refresh so the copy appears (newest first)
+  }
+
   async function doDeleteCloud(id: string) {
     if (!window.confirm("Delete this layout for everyone?")) return;
     setCloudBusy(true);
@@ -535,6 +574,7 @@ export default function App() {
             <button type="button" title="New layout" onClick={doNewProject}>New</button>
             {ready && <button type="button" title="Open a saved layout" onClick={openProjectsModal}>Open…</button>}
             {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={doSaveCloud}>Save</button>}
+            {ready && <button type="button" className="ghost" title="Save the current layout as a new project (a copy) and switch to it" disabled={cloudBusy} onClick={doDuplicateCurrent}>Duplicate</button>}
             <button type="button" className="ghost icon" title="Download layout as JSON" onClick={doDownload}>⬇</button>
             <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={doOpenFile}>⬆</button>
           </span>
@@ -859,6 +899,7 @@ export default function App() {
                       <span className="pn">{p.name || "Untitled"}</span>
                       <span className="pm" title={new Date(p.updated_at).toLocaleString()}>saved by {p.updated_by_name ?? p.owner_name ?? "—"} · {timeAgo(p.updated_at)}</span>
                     </button>
+                    <button type="button" className="dup" disabled={cloudBusy} title="Duplicate into a new project" onClick={() => doDuplicateFromList(p)}>⧉</button>
                     <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
                   </li>
                 ))}
