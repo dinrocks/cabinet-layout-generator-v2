@@ -37,8 +37,9 @@ multi-user safety._
 A whole-project risk review ranked what can actually hurt us. Full reasoning (the *why* and the
 failure stories) lives in the review doc; this is the build order:
 
-1. **Unsaved-changes guard** — `beforeunload` when dirty since last save (+ optional localStorage
-   draft autosave). Today, closing the tab silently loses all unsaved work. (~1 h) → R2
+1. ✅ **Unsaved-changes guard** — DONE (2026-07-02): dirty tracking via save-snapshot comparison,
+   "● unsaved" chip, `beforeunload` warning, confirm on New/**Open** (Open previously discarded
+   silently), and a crash-safe localStorage draft with restore-on-launch. → R2
 2. **Multi-user safety** — "last saved by <name> at <time>" on open/top bar; on Save, warn if the
    server row changed since load (Reload / Save anyway). The concurrent-clobber guard. (~½ day) → R3
 3. **Project revisions + backup** — `project_revisions` table keeping the last ~20 saves per

@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — unsaved-changes guard (RISK_REVIEW R2)
+- **You can no longer silently lose work.** The editor tracks unsaved changes (an **"● unsaved"**
+  chip shows in the toolbar) and warns before every discard path: closing/reloading the tab
+  (`beforeunload`), **New**, and **Open** (cloud or file) — Open previously discarded edits with
+  no warning at all. Undoing back to the last-saved state reads as clean again.
+- **Crash-safe draft** — while dirty, a working copy (model + project-local parts) is written to
+  `localStorage` (debounced 2 s). On the next launch you're offered a restore; a restored draft
+  stays *unsaved* until you actually Save. Cleared on save/open/new; the JSON ⬇ download also
+  counts as a save (it's the local-mode save).
+
 ### Changed — top-bar tidy-up
 - **Project name reads as an editable field** — it's now a bordered box with a ✎ pencil and an
   "Untitled project" placeholder, instead of looking like static grey text.

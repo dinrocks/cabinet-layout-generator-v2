@@ -51,16 +51,21 @@ everything else (parts, service, hosting) is recoverable by re-uploading or rede
    table via the REST API to a workflow artifact or a private repo. Even 30 days of retention
    turns "gone forever" into "restore from last night".
 
-### R2 — Silent work loss in the browser (no unsaved-changes guard)
+### R2 — Silent work loss in the browser (no unsaved-changes guard)  ✅ FIXED
 
-**Why.** There is **no `beforeunload` handler** — only the "New" button asks for confirmation
-(`App.tsx`). Close the tab, hit Back, or a Windows-update reboot with unsaved edits → everything
-since the last Save vanishes without a whisper. Undo history is in-memory only.
+**Why.** There was **no `beforeunload` handler** — only the "New" button asked for confirmation,
+and **Open discarded unsaved edits with no warning at all**. Close the tab, hit Back, or a
+Windows-update reboot with unsaved edits → everything since the last Save vanished silently.
+Undo history is in-memory only.
 
-**How.** Track "dirty since last save" (a counter bumped by `set()`/`useHistory`, reset on
-save/open). When dirty: (a) register `beforeunload` so the browser shows the leave-warning;
-(b) optionally autosave a draft to `localStorage` every ~30 s and offer "Restore draft?" on next
-open — that makes even a crash lossless. ~1 hour of work; the single cheapest high-value fix.
+**How it was fixed.** Dirty = snapshot comparison: what a save persists (model + project-local
+lib via `projectLocal()`) is serialized (`snapshot` memo in `App.tsx`) and compared against the
+baseline taken at the last save/open/new — so undoing back to the saved state reads clean again.
+While dirty: an "● unsaved" toolbar chip, a `beforeunload` leave-warning, confirm dialogs on
+New/Open, and a **debounced localStorage draft** (`web/src/store/draft.ts`) that survives a crash;
+next launch offers a restore (deferred until the shared catalog loads so validation can resolve
+shared parts), and a restored draft **stays dirty** until actually saved. The JSON ⬇ download
+also marks clean (it *is* the local-mode save). Draft is best-effort (quota errors swallowed).
 
 ### R3 — Concurrent edits silently clobber (last-write-wins)
 
@@ -141,7 +146,7 @@ references — self-healing for existing projects. Alternatively clean up in `de
 
 | # | Item | Fixes | Effort |
 |---|------|-------|--------|
-| 1 | `beforeunload` dirty-guard (+ localStorage draft) | R2 | ~1 h |
+| 1 | ✅ `beforeunload` dirty-guard (+ localStorage draft) — shipped 2026-07-02 | R2 | done |
 | 2 | Multi-user safety: last-saved-by + stale-save warning | R3 | ~½ day |
 | 3 | Project revisions (last ~20 saves) + nightly backup Action | R1 | ~½ day |
 | 4 | Upload size cap on the service | R4 | minutes |

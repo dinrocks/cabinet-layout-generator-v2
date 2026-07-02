@@ -51,6 +51,7 @@
 .status { font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status.ok { color: #1a7f37; }
 .status.err { color: #c00; }
+.status.dirty { color: #b45309; font-weight: 600; }
 
 /* library sidebar */
 .library { grid-area: lib; border-right: 1px solid #ddd; background: #fff; overflow: auto; padding: 10px 10px 20px; }

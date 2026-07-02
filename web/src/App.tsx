@@ -5,8 +5,9 @@ import type { Library, DxfLibItem, RectLibItem, LayoutModel } from "./model/type
 import { validate } from "./model/validate";
 import { useAuth } from "./auth/AuthContext";
 import { cloudEnabled } from "./lib/supabaseClient";
-import { listProjects, loadProject, saveProject, deleteProject, type ProjectSummary } from "./store/projectStore";
+import { listProjects, loadProject, saveProject, deleteProject, projectLocal, type ProjectSummary } from "./store/projectStore";
 import { downloadLayout, pickLayoutFile } from "./store/localFile";
+import { saveDraft, loadDraft, clearDraft } from "./store/draft";
 import { listLibraryItems, addLibraryItem, updateLibraryItem, deleteLibraryItem } from "./store/libraryStore";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
@@ -63,6 +64,7 @@ export default function App() {
   const [cloudBusy, setCloudBusy] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [sharedLib, setSharedLib] = useState<Library>({}); // the shared equipment catalog (library_items)
+  const [sharedLoaded, setSharedLoaded] = useState(false); // catalog fetch finished (gates draft restore)
 
   /** Load the shared library into state once signed in (everyone sees uploaded shared parts). */
   useEffect(() => {
@@ -72,12 +74,43 @@ export default function App() {
       if (!alive) return;
       setSharedLib(items);
       setLibrary((l) => ({ ...l, ...items }));
+      setSharedLoaded(true);
     });
     return () => { alive = false; };
   }, [auth.status]);
 
-  /** Validate a loaded model (against seed + shared + its project-local parts), then adopt it. */
-  function applyLoaded(m: LayoutModel | undefined, projectLocalLib: Library, cloudId: string | null): boolean {
+  // ── unsaved-changes guard (RISK_REVIEW R2) ──────────────────────────────────
+  // "Dirty" = what a save would persist (model + project-local lib) differs from
+  // the snapshot taken at the last save/open/new. Snapshot comparison means undo
+  // back to the saved state reads as clean again.
+  const sharedKeys = useMemo(() => new Set(Object.keys(sharedLib)), [sharedLib]);
+  const snapshot = useMemo(
+    () => JSON.stringify({ m: model, l: projectLocal(library, sharedKeys) }),
+    [model, library, sharedKeys],
+  );
+  const [cleanSnap, setCleanSnap] = useState(snapshot); // baseline = the fresh blank
+  const dirty = snapshot !== cleanSnap;
+
+  // browser leave-warning while dirty (close tab / back / reload)
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // crash-safe draft: while dirty, write a debounced working copy to localStorage
+  useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => saveDraft(model, projectLocal(library, sharedKeys), projectId), 2000);
+    return () => clearTimeout(t);
+  }, [dirty, model, library, sharedKeys, projectId]);
+
+  /** Validate a loaded model (against seed + shared + its project-local parts), then adopt it.
+   *  `keepDirty` is for restoring a DRAFT: the restored state is still unsaved work,
+   *  so it must stay dirty (leave-warning + draft keep refreshing) until a real save. */
+  function applyLoaded(m: LayoutModel | undefined, projectLocalLib: Library, cloudId: string | null,
+    opts: { keepDirty?: boolean } = {}): boolean {
     if (!m || !m.project || !m.plate || !Array.isArray(m.elements)) {
       setStatus({ kind: "error", message: "That file isn't a valid layout." });
       return false;
@@ -89,12 +122,40 @@ export default function App() {
     set(m);
     setSelections([]);
     setProjectId(cloudId);
+    if (!opts.keepDirty) {
+      // same serialization as the `snapshot` memo, built from the adopted values
+      setCleanSnap(JSON.stringify({ m, l: projectLocal(lib, sharedKeys) }));
+      clearDraft();
+    }
     return true;
   }
+
+  /** Offer to restore a crash/close draft once per session — after the shared
+   *  catalog is in (when signed in), so validation can resolve shared parts.
+   *  No dep array: it re-checks each render but the ref guards actual work. */
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    if (ready && !sharedLoaded) return; // wait for the catalog first
+    restoredRef.current = true;
+    const d = loadDraft();
+    if (!d) return;
+    // deferred so the app paints before the blocking confirm (and no setState
+    // inside the synchronous effect body). No cleanup: the ref makes it once-only.
+    window.setTimeout(() => {
+      const when = new Date(d.savedAt).toLocaleString();
+      if (window.confirm(`Restore your unsaved draft "${d.model?.project?.name || "Untitled"}" from ${when}?\n\n(Cancel discards the draft.)`)) {
+        applyLoaded(d.model, d.library, d.projectId, { keepDirty: true });
+      } else {
+        clearDraft();
+      }
+    }, 0);
+  });
 
   async function openProjectsModal() { setProjectList(await listProjects()); setProjectsOpen(true); }
 
   async function doOpenCloud(id: string) {
+    if (dirty && !window.confirm("Open another layout? Unsaved changes here will be lost.")) return;
     setCloudBusy(true);
     const res = await loadProject(id);
     setCloudBusy(false);
@@ -108,10 +169,15 @@ export default function App() {
   async function doSaveCloud() {
     if (!ready || !auth.profile) return;
     setCloudBusy(true);
-    const r = await saveProject(model, library, new Set(Object.keys(sharedLib)), auth.profile.id, projectId);
+    const r = await saveProject(model, library, sharedKeys, auth.profile.id, projectId);
     setCloudBusy(false);
     if ("error" in r) setStatus({ kind: "error", message: `Save failed: ${r.error}` });
-    else { setProjectId(r.id); setStatus({ kind: "done", label: "Saved" }); }
+    else {
+      setProjectId(r.id);
+      setStatus({ kind: "done", label: "Saved" });
+      setCleanSnap(snapshot); // what we just saved is the new clean baseline
+      clearDraft();
+    }
   }
 
   async function doDeleteCloud(id: string) {
@@ -125,17 +191,29 @@ export default function App() {
   }
 
   function doNewProject() {
-    if (!window.confirm("Start a new layout? Unsaved changes will be lost.")) return;
+    // only nag when there actually is unsaved work
+    if (dirty && !window.confirm("Start a new layout? Unsaved changes will be lost.")) return;
+    const fresh = newModel("Untitled", "tall_floor");
     setLibrary({ ...sharedLib }); // keep the shared catalog available
-    set(newModel("Untitled", "tall_floor"));
+    set(fresh);
     setSelections([]);
     setProjectId(null);
+    setCleanSnap(JSON.stringify({ m: fresh, l: {} })); // blank = clean
+    clearDraft();
   }
 
   async function doOpenFile() {
+    if (dirty && !window.confirm("Open another layout? Unsaved changes here will be lost.")) return;
     const res = await pickLayoutFile();
     if (!res) { setStatus({ kind: "error", message: "Couldn't read that file." }); return; }
     applyLoaded(res.model, res.library, null);
+  }
+
+  /** Local JSON download doubles as the local-mode save — it clears the dirty state. */
+  function doDownload() {
+    downloadLayout(model, library);
+    setCleanSnap(snapshot);
+    clearDraft();
   }
 
   const renameProject = (name: string) => set({ ...model, project: { ...model.project, name } });
@@ -421,7 +499,7 @@ export default function App() {
             <button type="button" title="New layout" onClick={doNewProject}>New</button>
             {ready && <button type="button" title="Open a saved layout" onClick={openProjectsModal}>Open…</button>}
             {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={doSaveCloud}>Save</button>}
-            <button type="button" className="ghost icon" title="Download layout as JSON" onClick={() => downloadLayout(model, library)}>⬇</button>
+            <button type="button" className="ghost icon" title="Download layout as JSON" onClick={doDownload}>⬇</button>
             <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={doOpenFile}>⬆</button>
           </span>
           {/* History */}
@@ -474,8 +552,9 @@ export default function App() {
             <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
               onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
           </span>
+          {dirty && <span className="status dirty" title="Unsaved changes — Save (cloud) or ⬇ (file)">● unsaved</span>}
           {status.kind === "busy" && <span className="status">… {status.label}</span>}
-          {status.kind === "done" && <span className="status ok">✓ {status.label}</span>}
+          {status.kind === "done" && !dirty && <span className="status ok">✓ {status.label}</span>}
           {status.kind === "error" && <span className="status err" title={status.message}>✗ {status.message}</span>}
           <span className="group">
             {cloudEnabled && ready && auth.profile ? (
