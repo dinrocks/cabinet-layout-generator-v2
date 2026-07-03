@@ -18,6 +18,14 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
   Actions secret (kept out of GitHub artifacts — the repo is public).
 
+### Added — folders for layouts
+- Group layouts into **team-shared folders** (one level) — e.g. all the cabinets of one job under
+  "Job X". The **Open dialog is now grouped**: collapsible folder sections (with a count) + an **Unfiled**
+  section, ordered by most-recent activity (the folder you last touched floats up). **+ New folder**,
+  rename (✎) / delete (✕, layouts move to Unfiled — never deleted), and a per-layout **▾ move** dropdown.
+- Duplicating a layout keeps it in the same folder; **New** starts Unfiled. Nightly backup includes folders.
+- Needs a one-time `supabase/schema.sql` re-run (adds `folders` + `projects.folder_id` + RLS).
+
 ### Changed — parts listed alphabetically
 - Every part list — the sidebar under each category, **ADD A SET**, the start/end **cap** pickers, and
   the **Insert beside** dialog — now sorts **A→Z by name** (numeric-aware, case-insensitive) instead of

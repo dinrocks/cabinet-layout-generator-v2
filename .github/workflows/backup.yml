@@ -37,9 +37,11 @@ jobs:
           fetch projects projects.json
           fetch library_items library.json
           fetch allowed_emails emails.json
+          fetch folders folders.json
 
-          jq -n --slurpfile p projects.json --slurpfile l library.json --slurpfile e emails.json \
-            '{taken_at: (now | todate), projects: $p[0], library_items: $l[0], allowed_emails: $e[0]}' \
+          jq -n --slurpfile p projects.json --slurpfile l library.json \
+                --slurpfile e emails.json --slurpfile f folders.json \
+            '{taken_at: (now | todate), projects: $p[0], library_items: $l[0], allowed_emails: $e[0], folders: $f[0]}' \
             > dump.json
           echo "dump size: $(wc -c < dump.json) bytes, $(jq '.projects | length' dump.json) projects"
 

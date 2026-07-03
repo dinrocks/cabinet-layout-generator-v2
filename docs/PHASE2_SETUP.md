@@ -155,3 +155,10 @@ Repo → Settings → Secrets and variables → **Actions** → New repository s
 Actions → **Nightly backup** → *Run workflow* → green → Storage → `backups/backup-<day>.json`
 exists and contains your projects. Then: Save a project twice → Open → **⟲** shows both revisions →
 Restore the older one → the editor shows it as **● unsaved** → Save keeps it.
+
+## Folders (team-shared layout grouping)
+
+One-time: SQL Editor → run the full `supabase/schema.sql` again (idempotent). This adds the
+`folders` table, `projects.folder_id`, and RLS. Then in **Open**: **+ New folder**, drag layouts in
+with each row's **▾ move**, rename/delete folders. Deleting a folder keeps its layouts (moved to
+Unfiled). Nothing else to configure.

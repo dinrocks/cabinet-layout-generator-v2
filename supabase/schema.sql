@@ -189,3 +189,29 @@ drop policy if exists "members add revisions" on public.project_revisions;
 create policy "members add revisions" on public.project_revisions
   for insert with check (public.is_member() and saved_by = auth.uid());
 -- no update/delete policies: history is append-only (the trigger trims).
+
+-- ── folders: team-shared, one-level grouping of layouts (Job → its cabinets) ──
+create table if not exists public.folders (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null default 'Folder',
+  owner      uuid not null references public.profiles (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- a layout's folder (null = Unfiled). Deleting a folder UN-FILES its layouts, never deletes them.
+alter table public.projects add column if not exists folder_id uuid references public.folders (id) on delete set null;
+create index if not exists projects_folder_idx on public.projects (folder_id);
+
+alter table public.folders enable row level security;
+-- shared like projects: any member reads/creates/renames; delete by owner or admin.
+drop policy if exists "members read folders" on public.folders;
+create policy "members read folders" on public.folders for select using (public.is_member());
+drop policy if exists "members insert folders" on public.folders;
+create policy "members insert folders" on public.folders
+  for insert with check (public.is_member() and owner = auth.uid());
+drop policy if exists "members update folders" on public.folders;
+create policy "members update folders" on public.folders
+  for update using (public.is_member()) with check (public.is_member());
+drop policy if exists "owner or admin delete folders" on public.folders;
+create policy "owner or admin delete folders" on public.folders
+  for delete using (owner = auth.uid() or public.is_admin());

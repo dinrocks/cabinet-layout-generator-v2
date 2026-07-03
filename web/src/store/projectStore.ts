@@ -26,6 +26,14 @@ export interface ProjectSummary {
   updated_at: string;
   owner_name: string | null;
   updated_by_name: string | null; // who saved it last (multi-user safety)
+  folder_id: string | null;       // grouping folder (null = Unfiled)
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -40,6 +48,7 @@ interface RawSummary {
   panel_tag: string;
   rev: string;
   updated_at: string;
+  folder_id: string | null;
   owner: Embed;
   updater: Embed;
 }
@@ -49,13 +58,48 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("projects")
-    .select("id,name,panel_tag,rev,updated_at,owner:profiles!projects_owner_fkey(display_name),updater:profiles!projects_updated_by_fkey(display_name)")
+    .select("id,name,panel_tag,rev,updated_at,folder_id,owner:profiles!projects_owner_fkey(display_name),updater:profiles!projects_updated_by_fkey(display_name)")
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
   return (data as unknown as RawSummary[]).map((r) => ({
     id: r.id, name: r.name, panel_tag: r.panel_tag, rev: r.rev, updated_at: r.updated_at,
-    owner_name: embedName(r.owner), updated_by_name: embedName(r.updater),
+    folder_id: r.folder_id ?? null, owner_name: embedName(r.owner), updated_by_name: embedName(r.updater),
   }));
+}
+
+/** The team's folders (shared). */
+export async function listFolders(): Promise<Folder[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("folders").select("id,name,created_at,updated_at");
+  if (error || !data) return [];
+  return data as Folder[];
+}
+
+/** Create a folder; returns its id (or null on failure). */
+export async function createFolder(name: string, userId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("folders").insert({ name, owner: userId }).select("id").single();
+  return error ? null : (data as { id: string }).id;
+}
+
+export async function renameFolder(id: string, name: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("folders").update({ name, updated_at: new Date().toISOString() }).eq("id", id);
+  return !error;
+}
+
+/** Delete a folder — its layouts are un-filed (folder_id → null via ON DELETE SET NULL). */
+export async function deleteFolder(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("folders").delete().eq("id", id);
+  return !error;
+}
+
+/** Move a layout into a folder (or out to Unfiled with null). */
+export async function moveProject(projectId: string, folderId: string | null): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("projects").update({ folder_id: folderId }).eq("id", projectId);
+  return !error;
 }
 
 export interface LoadedProject {
@@ -65,18 +109,19 @@ export interface LoadedProject {
   /** server version at load — the base for the stale-save guard */
   updatedAt: string;
   updatedByName: string | null;
+  folderId: string | null;
 }
 
 /** Load a layout + its carried library; stamps project.id with the row id. */
 export async function loadProject(id: string): Promise<LoadedProject | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.from("projects")
-    .select("layout,library,updated_at,updater:profiles!projects_updated_by_fkey(display_name)")
+    .select("layout,library,updated_at,folder_id,updater:profiles!projects_updated_by_fkey(display_name)")
     .eq("id", id).maybeSingle();
   if (error || !data) return null;
-  const row = data as { layout: LayoutModel; library: Library | null; updated_at: string; updater: Embed };
+  const row = data as { layout: LayoutModel; library: Library | null; updated_at: string; folder_id: string | null; updater: Embed };
   row.layout.project.id = id;
-  return { model: row.layout, library: row.library ?? {}, updatedAt: row.updated_at, updatedByName: embedName(row.updater) };
+  return { model: row.layout, library: row.library ?? {}, updatedAt: row.updated_at, updatedByName: embedName(row.updater), folderId: row.folder_id ?? null };
 }
 
 export type SaveResult =

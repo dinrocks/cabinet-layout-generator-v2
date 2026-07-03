@@ -8,7 +8,8 @@ import { cloudEnabled } from "./lib/supabaseClient";
 import {
   listProjects, loadProject, saveProject, deleteProject, projectLocal,
   listRevisions, loadRevision, getProjectVersion,
-  type ProjectSummary, type RevisionSummary,
+  listFolders, createFolder, renameFolder, deleteFolder, moveProject,
+  type ProjectSummary, type RevisionSummary, type Folder,
 } from "./store/projectStore";
 import RevisionsModal from "./editor/RevisionsModal";
 import { downloadLayout, pickLayoutFile } from "./store/localFile";
@@ -80,6 +81,9 @@ export default function App() {
   const [lastSaved, setLastSaved] = useState<{ name: string | null; at: string } | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null); // open project's folder
   const [cloudBusy, setCloudBusy] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [sharedLib, setSharedLib] = useState<Library>({}); // the shared equipment catalog (library_items)
@@ -174,7 +178,13 @@ export default function App() {
     }, 0);
   });
 
-  async function openProjectsModal() { setProjectList(await listProjects()); setProjectsOpen(true); }
+  async function openProjectsModal() {
+    setProjectsOpen(true);
+    const [projs, folds] = await Promise.all([listProjects(), listFolders()]);
+    setProjectList(projs);
+    setFolders(folds);
+  }
+  const refreshProjects = async () => setProjectList(await listProjects());
 
   async function doOpenCloud(id: string) {
     if (dirty && !window.confirm("Open another layout? Unsaved changes here will be lost.")) return;
@@ -183,6 +193,7 @@ export default function App() {
     setCloudBusy(false);
     if (!res) { setStatus({ kind: "error", message: "Couldn't load that layout." }); return; }
     if (applyLoaded(res.model, res.library, id, { meta: { updatedAt: res.updatedAt, updatedByName: res.updatedByName } })) {
+      setCurrentFolderId(res.folderId);
       setProjectsOpen(false);
       setStatus({ kind: "done", label: "Opened" });
     }
@@ -232,6 +243,7 @@ export default function App() {
     setCloudBusy(false);
     if ("error" in r) { setStatus({ kind: "error", message: `Copy failed: ${r.error}` }); return; }
     if ("conflict" in r) return; // impossible on insert, but keeps the union exhaustive
+    if (currentFolderId) await moveProject(r.id, currentFolderId); // copy lands in the same folder
     set(copy); // adopt the renamed model; editor is now on the copy
     setProjectId(r.id);
     setBaseUpdatedAt(r.updatedAt);
@@ -252,10 +264,11 @@ export default function App() {
     if (!src) { setCloudBusy(false); setStatus({ kind: "error", message: "Couldn't read that layout to copy." }); return; }
     const copy = { ...src.model, project: { ...src.model.project, name } };
     const r = await saveProject(copy, src.library, sharedKeys, auth.profile.id, null, null);
+    if (!("error" in r || "conflict" in r) && p.folder_id) await moveProject(r.id, p.folder_id); // same folder
     setCloudBusy(false);
     if ("error" in r || "conflict" in r) { setStatus({ kind: "error", message: "Copy failed." }); return; }
     setStatus({ kind: "done", label: "Copied" });
-    setProjectList(await listProjects()); // refresh so the copy appears (newest first)
+    await refreshProjects(); // show the copy (newest first)
   }
 
   /** Open a project's save history (last ~20 revisions). */
@@ -289,8 +302,54 @@ export default function App() {
     setCloudBusy(false);
     if (!ok) { setStatus({ kind: "error", message: "Delete failed." }); return; }
     if (id === projectId) setProjectId(null);
-    setProjectList(await listProjects());
+    await refreshProjects();
   }
+
+  // ── folders ──────────────────────────────────────────────────────────────
+  async function doNewFolder() {
+    if (!auth.profile) return;
+    const input = window.prompt("New folder name", "New folder");
+    if (input == null || !input.trim()) return;
+    setCloudBusy(true);
+    const id = await createFolder(input.trim(), auth.profile.id);
+    setCloudBusy(false);
+    if (!id) { setStatus({ kind: "error", message: "Couldn't create the folder." }); return; }
+    setFolders(await listFolders());
+  }
+  async function doRenameFolder(f: Folder) {
+    const input = window.prompt("Rename folder", f.name);
+    if (input == null || !input.trim() || input.trim() === f.name) return;
+    setCloudBusy(true);
+    const ok = await renameFolder(f.id, input.trim());
+    setCloudBusy(false);
+    if (!ok) { setStatus({ kind: "error", message: "Rename failed." }); return; }
+    setFolders(await listFolders());
+  }
+  async function doDeleteFolder(f: Folder, count: number) {
+    if (!window.confirm(count > 0
+      ? `Delete folder "${f.name}"? Its ${count} layout${count > 1 ? "s" : ""} are kept and moved to Unfiled.`
+      : `Delete folder "${f.name}"?`)) return;
+    setCloudBusy(true);
+    const ok = await deleteFolder(f.id);
+    setCloudBusy(false);
+    if (!ok) { setStatus({ kind: "error", message: "Delete failed (owner/admin only)." }); return; }
+    const [folds] = await Promise.all([listFolders(), refreshProjects()]);
+    setFolders(folds);
+  }
+  /** Move a layout into a folder (or Unfiled with null); refresh the grouped list. */
+  async function doMoveProject(projectId2: string, folderId: string | null) {
+    setCloudBusy(true);
+    const ok = await moveProject(projectId2, folderId);
+    setCloudBusy(false);
+    if (!ok) { setStatus({ kind: "error", message: "Move failed." }); return; }
+    if (projectId2 === projectId) setCurrentFolderId(folderId); // keep the open project in sync
+    await refreshProjects();
+  }
+  const toggleFolder = (id: string) => setCollapsedFolders((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
 
   function doNewProject() {
     // only nag when there actually is unsaved work
@@ -300,6 +359,7 @@ export default function App() {
     set(fresh);
     setSelections([]);
     setProjectId(null);
+    setCurrentFolderId(null);
     setCleanSnap(JSON.stringify({ m: fresh, l: {} })); // blank = clean
     clearDraft();
   }
@@ -1002,25 +1062,76 @@ export default function App() {
 
       {projectsOpen && (
         <div className="modal-overlay" onClick={() => setProjectsOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Open a layout</h3>
-            {projectList.length === 0 ? (
+          <div className="modal projects-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="projects-head">
+              <h3>Open a layout</h3>
+              <button type="button" className="ghost" disabled={cloudBusy} onClick={doNewFolder}>+ New folder</button>
+            </div>
+            {projectList.length === 0 && folders.length === 0 ? (
               <p className="muted small">No saved layouts yet — Save one first.</p>
-            ) : (
-              <ul className="plist">
-                {projectList.map((p) => (
-                  <li key={p.id}>
-                    <button type="button" className="plist-open" disabled={cloudBusy} onClick={() => doOpenCloud(p.id)}>
-                      <span className="pn">{p.name || "Untitled"}</span>
-                      <span className="pm" title={new Date(p.updated_at).toLocaleString()}>saved by {p.updated_by_name ?? p.owner_name ?? "—"} · {timeAgo(p.updated_at)}</span>
-                    </button>
-                    <button type="button" className="dup" disabled={cloudBusy} title="History — restore an earlier save" onClick={() => openHistory(p)}>⟲</button>
-                    <button type="button" className="dup" disabled={cloudBusy} title="Duplicate into a new project" onClick={() => doDuplicateFromList(p)}>⧉</button>
-                    <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            ) : (() => {
+              // group by folder; a group's "activity" = its newest layout (folders empty → own updated_at)
+              const byFolder = new Map<string | null, ProjectSummary[]>();
+              for (const p of projectList) {
+                const arr = byFolder.get(p.folder_id) ?? [];
+                arr.push(p); byFolder.set(p.folder_id, arr);
+              }
+              const groups = folders.map((f) => {
+                const ps = byFolder.get(f.id) ?? [];
+                return { key: f.id, folder: f, projects: ps,
+                  activity: ps.length ? +new Date(ps[0].updated_at) : +new Date(f.updated_at) };
+              });
+              const loose = byFolder.get(null) ?? [];
+              if (loose.length) groups.push({ key: "__unfiled__", folder: null as unknown as Folder, projects: loose, activity: +new Date(loose[0].updated_at) });
+              groups.sort((a, b) => b.activity - a.activity);
+
+              const projectRow = (p: ProjectSummary) => (
+                <li key={p.id} className="plist-row">
+                  <button type="button" className="plist-open" disabled={cloudBusy} onClick={() => doOpenCloud(p.id)}>
+                    <span className="pn">{p.name || "Untitled"}</span>
+                    <span className="pm" title={new Date(p.updated_at).toLocaleString()}>saved by {p.updated_by_name ?? p.owner_name ?? "—"} · {timeAgo(p.updated_at)}</span>
+                  </button>
+                  <select className="plist-move" value={p.folder_id ?? ""} disabled={cloudBusy}
+                    title="Move to folder" onChange={(e) => doMoveProject(p.id, e.target.value || null)}>
+                    <option value="">Unfiled</option>
+                    {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                  <button type="button" className="dup" disabled={cloudBusy} title="History — restore an earlier save" onClick={() => openHistory(p)}>⟲</button>
+                  <button type="button" className="dup" disabled={cloudBusy} title="Duplicate into a new project" onClick={() => doDuplicateFromList(p)}>⧉</button>
+                  <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
+                </li>
+              );
+
+              return (
+                <ul className="plist folders">
+                  {groups.map((g) => {
+                    const collapsed = collapsedFolders.has(g.key);
+                    return (
+                      <li key={g.key} className="folder-group">
+                        <div className="folder-head">
+                          <button type="button" className="folder-toggle" onClick={() => toggleFolder(g.key)}>
+                            <span className="caret">{collapsed ? "▸" : "▾"}</span>
+                            {g.folder ? g.folder.name : "Unfiled"}
+                            <span className="folder-count">{g.projects.length}</span>
+                          </button>
+                          {g.folder && (
+                            <>
+                              <button type="button" className="dup" disabled={cloudBusy} title="Rename folder" onClick={() => doRenameFolder(g.folder)}>✎</button>
+                              <button type="button" className="danger" disabled={cloudBusy} title="Delete folder (layouts move to Unfiled)" onClick={() => doDeleteFolder(g.folder, g.projects.length)}>✕</button>
+                            </>
+                          )}
+                        </div>
+                        {!collapsed && (
+                          g.projects.length
+                            ? <ul className="plist folder-projects">{g.projects.map(projectRow)}</ul>
+                            : <p className="folder-empty">— empty — move a layout here with its ▾</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              );
+            })()}
             <div className="modal-actions"><button type="button" onClick={() => setProjectsOpen(false)}>Close</button></div>
           </div>
         </div>

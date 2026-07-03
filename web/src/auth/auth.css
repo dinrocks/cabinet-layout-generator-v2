@@ -103,6 +103,23 @@
 .plist .dup:hover { background: #eef3ff; border-color: #2f6fed; }
 .plist .dup:disabled { opacity: 0.5; cursor: default; }
 
+/* folders in the Open dialog */
+.projects-modal { width: 560px; max-width: 94vw; max-height: 82vh; overflow: auto; }
+.projects-head { display: flex; align-items: center; justify-content: space-between; }
+.projects-head h3 { margin: 0; }
+.projects-head button { font-size: 12px; padding: 5px 10px; border: 1px solid #2f6fed; background: #fff; color: #2f6fed; border-radius: 6px; cursor: pointer; }
+.plist.folders { margin-top: 10px; }
+.plist .folder-group { display: block; margin: 6px 0 0; }
+.folder-head { display: flex; align-items: stretch; gap: 4px; }
+.folder-toggle { flex: 1; display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer;
+  background: #f0f3f8; border: 1px solid #e0e5ec; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: 13px; font-weight: 600; color: #1a1a1a; }
+.folder-toggle:hover { background: #e7edf6; }
+.folder-toggle .caret { width: 10px; color: #6b7280; font-size: 11px; }
+.folder-count { margin-left: auto; background: #dbe3ee; color: #4b5563; border-radius: 10px; padding: 0 8px; font-size: 11px; }
+.folder-projects { list-style: none; margin: 3px 0 3px 12px; padding-left: 8px; border-left: 2px solid #eef0f3; }
+.folder-empty { margin: 3px 0 3px 22px; font-size: 11px; color: #9aa3af; font-style: italic; }
+.plist-move { max-width: 108px; font-size: 11px; padding: 2px 4px; border: 1px solid #cfd8e3; border-radius: 6px; background: #fff; color: #444; }
+
 /* upload modal: "add to shared library" choice + the category select */
 .share-opt { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; font-size: 12px; color: #444; cursor: pointer; line-height: 1.4; }
 .share-opt input { margin-top: 2px; flex: none; }
