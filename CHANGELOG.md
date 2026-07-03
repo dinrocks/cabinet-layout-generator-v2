@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format is based on
 
 _This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
 
+### Added — project history + nightly backup (RISK_REVIEW R1)
+- **Every Save keeps a revision** (`project_revisions`, last 20 per project, DB-trimmed). The Open
+  dialog's **⟲ History** lists them ("saved by <name> · <time>"); **Restore loads that version into the
+  editor as *unsaved* work** — the live project is untouched until you Save (which still runs the
+  stale-save guard). One bad save no longer destroys a drawing. Re-run `supabase/schema.sql` once.
+- **Nightly backup** (`.github/workflows/backup.yml`) dumps projects + shared library + allowlist to a
+  **private** Supabase Storage bucket `backups`, rotating by day-of-month (~a month of restore points).
+  Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
+  Actions secret (kept out of GitHub artifacts — the repo is public).
+
 ### Added — bulk selection (marquee, select-row, Ctrl+A)
 - **Shift+drag rubber-band selection** with the CAD window/crossing rule: drag **left→right** (solid
   blue) selects only what's **fully inside**; **right→left** (dashed green) selects anything **touched**

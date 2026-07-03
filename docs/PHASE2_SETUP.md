@@ -136,3 +136,22 @@ On Render add `SUPABASE_JWT_SECRET = <JWT secret>` (Supabase → Settings → AP
 3. Open a **different project** / sign in as a **second teammate** → the shared part is there.
 4. Upload another with the checkbox **off** → it shows only in *this* project.
 5. (Optional) `curl` `/export` without a token after step 4 → **401**.
+
+## Slice 3 — history + nightly backup (RISK_REVIEW R1)
+
+### 1. Schema (once)
+SQL Editor → run the full `supabase/schema.sql` again (idempotent). This adds `project_revisions`
++ RLS + the keep-last-20 trigger. From the next Save, every project records history (⟲ in Open).
+
+### 2. Private backups bucket (once)
+Supabase → **Storage** → **New bucket** → name `backups`, **Private** → Create.
+
+### 3. GitHub Actions secret (once)
+Repo → Settings → Secrets and variables → **Actions** → New repository secret:
+- `SUPABASE_SERVICE_KEY` = the **service_role** key (Supabase → Settings → API — same value as on
+  Render; never in code or the frontend). `SUPABASE_URL` should already exist from the keep-alive.
+
+### Verify
+Actions → **Nightly backup** → *Run workflow* → green → Storage → `backups/backup-<day>.json`
+exists and contains your projects. Then: Save a project twice → Open → **⟲** shows both revisions →
+Restore the older one → the editor shows it as **● unsaved** → Save keeps it.

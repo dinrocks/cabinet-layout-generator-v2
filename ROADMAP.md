@@ -43,9 +43,11 @@ failure stories) lives in the review doc; this is the build order:
 2. ✅ **Multi-user safety** — DONE (2026-07-02): "saved by <name> <when>" in the top bar + Open list;
    Save is a compare-and-set against the opened version and warns (overwrite / keep unsaved) on a
    conflict. The concurrent-clobber guard. → R3
-3. **Project revisions + backup** — `project_revisions` table keeping the last ~20 saves per
-   project (restorable from the Open dialog) + a nightly GitHub-Action dump of the projects table.
-   Turns "drawing gone forever after one bad save" into "restore a revision". (~½ day) → R1
+3. ✅ **Project revisions + backup** — DONE (2026-07-03): every Save keeps a revision (last 20,
+   DB-trimmed; ⟲ History in the Open dialog restores into the editor as unsaved work) + a nightly
+   backup Action dumping projects/library/allowlist to the private `backups` Storage bucket
+   (day-of-month rotation). Provisioning: re-run schema.sql, create the bucket, add the
+   SUPABASE_SERVICE_KEY Actions secret. → R1
 4. **Upload size cap** — `/upload` reads unbounded bytes into a 512 MB Render instance; reject
    > ~20 MB early. (minutes) → R4
 5. **Assembler harness in CI** — commit a small sample DXF (`service/testdata/`) and de-hardcode

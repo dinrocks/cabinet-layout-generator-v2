@@ -113,7 +113,10 @@ export async function saveProject(
     if (baseUpdatedAt) q = q.eq("updated_at", baseUpdatedAt); // compare-and-set guard
     const { data, error } = await q.select("id").maybeSingle();
     if (error) return { error: error.message };
-    if (data) return { id: (data as { id: string }).id, updatedAt: now };
+    if (data) {
+      await writeRevision(existingId, row, userId); // history, best-effort
+      return { id: (data as { id: string }).id, updatedAt: now };
+    }
     // 0 rows matched: the row either changed under us (conflict) or was deleted.
     const { data: cur } = await supabase.from("projects")
       .select("updated_at,updater:profiles!projects_updated_by_fkey(display_name)")
@@ -126,11 +129,64 @@ export async function saveProject(
   }
   const { data, error } = await supabase.from("projects").insert({ ...row, owner: userId }).select("id").single();
   if (error) return { error: error.message };
-  return { id: (data as { id: string }).id, updatedAt: now };
+  const newId = (data as { id: string }).id;
+  await writeRevision(newId, row, userId); // history, best-effort
+  return { id: newId, updatedAt: now };
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from("projects").delete().eq("id", id);
   return !error;
+}
+
+// ── revisions (RISK_REVIEW R1): every save also appends here; DB trims to ~20 ──
+
+export interface RevisionSummary {
+  id: string;
+  name: string;
+  saved_at: string;
+  saved_by_name: string | null;
+}
+
+/** Best-effort: a failed revision write must never fail the save itself. */
+async function writeRevision(projectId: string, row: { name: string; layout: LayoutModel; library: Library }, userId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.from("project_revisions").insert({
+    project_id: projectId, name: row.name, layout: row.layout, library: row.library, saved_by: userId,
+  });
+}
+
+/** A project's saved revisions, newest first. */
+export async function listRevisions(projectId: string): Promise<RevisionSummary[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("project_revisions")
+    .select("id,name,saved_at,saver:profiles!project_revisions_saved_by_fkey(display_name)")
+    .eq("project_id", projectId)
+    .order("saved_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as unknown as Array<{ id: string; name: string; saved_at: string; saver: Embed }>).map((r) => ({
+    id: r.id, name: r.name, saved_at: r.saved_at, saved_by_name: embedName(r.saver),
+  }));
+}
+
+/** The content of one revision (to load into the editor as unsaved work). */
+export async function loadRevision(revId: string): Promise<{ model: LayoutModel; library: Library } | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("project_revisions").select("layout,library").eq("id", revId).maybeSingle();
+  if (error || !data) return null;
+  const row = data as { layout: LayoutModel; library: Library | null };
+  return { model: row.layout, library: row.library ?? {} };
+}
+
+/** The live row's current version (base for the stale-save guard after a restore). */
+export async function getProjectVersion(id: string): Promise<{ updatedAt: string; updatedByName: string | null } | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.from("projects")
+    .select("updated_at,updater:profiles!projects_updated_by_fkey(display_name)")
+    .eq("id", id).maybeSingle();
+  if (!data) return null;
+  const r = data as { updated_at: string; updater: Embed };
+  return { updatedAt: r.updated_at, updatedByName: embedName(r.updater) };
 }

@@ -145,3 +145,47 @@ create policy "admins edit library" on public.library_items
 drop policy if exists "admins delete library" on public.library_items;
 create policy "admins delete library" on public.library_items
   for delete using (public.is_admin());
+
+-- ── project_revisions: the last ~20 saves of every project (RISK_REVIEW R1) ──
+-- Every save also writes a revision here, so one bad save no longer destroys a
+-- drawing — any recent version can be restored from the History dialog. Rows are
+-- trimmed automatically (trigger below); deleting a project deletes its history.
+create table if not exists public.project_revisions (
+  id         uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects (id) on delete cascade,
+  name       text not null default 'Untitled',   -- project name at save time
+  layout     jsonb not null,
+  library    jsonb not null default '{}'::jsonb, -- the project-local parts snapshot
+  saved_by   uuid references public.profiles (id),
+  saved_at   timestamptz not null default now()
+);
+create index if not exists project_revisions_proj_idx
+  on public.project_revisions (project_id, saved_at desc);
+
+-- keep only the newest 20 revisions per project (SECURITY DEFINER so the trim
+-- isn't blocked by RLS; members have no direct delete right)
+create or replace function public.trim_project_revisions()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.project_revisions
+  where project_id = new.project_id
+    and id not in (
+      select id from public.project_revisions
+      where project_id = new.project_id
+      order by saved_at desc
+      limit 20
+    );
+  return new;
+end $$;
+drop trigger if exists trim_revisions on public.project_revisions;
+create trigger trim_revisions after insert on public.project_revisions
+  for each row execute function public.trim_project_revisions();
+
+alter table public.project_revisions enable row level security;
+drop policy if exists "members read revisions" on public.project_revisions;
+create policy "members read revisions" on public.project_revisions
+  for select using (public.is_member());
+drop policy if exists "members add revisions" on public.project_revisions;
+create policy "members add revisions" on public.project_revisions
+  for insert with check (public.is_member() and saved_by = auth.uid());
+-- no update/delete policies: history is append-only (the trigger trims).

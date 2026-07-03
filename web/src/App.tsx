@@ -5,7 +5,12 @@ import type { Library, DxfLibItem, RectLibItem, LayoutModel } from "./model/type
 import { validate } from "./model/validate";
 import { useAuth } from "./auth/AuthContext";
 import { cloudEnabled } from "./lib/supabaseClient";
-import { listProjects, loadProject, saveProject, deleteProject, projectLocal, type ProjectSummary } from "./store/projectStore";
+import {
+  listProjects, loadProject, saveProject, deleteProject, projectLocal,
+  listRevisions, loadRevision, getProjectVersion,
+  type ProjectSummary, type RevisionSummary,
+} from "./store/projectStore";
+import RevisionsModal from "./editor/RevisionsModal";
 import { downloadLayout, pickLayoutFile } from "./store/localFile";
 import { saveDraft, loadDraft, clearDraft } from "./store/draft";
 import { listLibraryItems, addLibraryItem, updateLibraryItem, deleteLibraryItem } from "./store/libraryStore";
@@ -253,8 +258,32 @@ export default function App() {
     setProjectList(await listProjects()); // refresh so the copy appears (newest first)
   }
 
+  /** Open a project's save history (last ~20 revisions). */
+  async function openHistory(p: ProjectSummary) {
+    setCloudBusy(true);
+    const revs = await listRevisions(p.id);
+    setCloudBusy(false);
+    setHistoryFor({ id: p.id, name: p.name, revs });
+  }
+
+  /** Load a revision into the editor as UNSAVED work — the server is untouched
+   *  until the user Saves (which then runs the normal stale-save guard). */
+  async function doRestoreRevision(revId: string) {
+    if (!historyFor) return;
+    if (dirty && !window.confirm("Load this revision? Unsaved changes here will be lost.")) return;
+    setCloudBusy(true);
+    const rev = await loadRevision(revId);
+    const live = await getProjectVersion(historyFor.id); // base for the save guard
+    setCloudBusy(false);
+    if (!rev) { setStatus({ kind: "error", message: "Couldn't load that revision." }); return; }
+    if (applyLoaded(rev.model, rev.library, historyFor.id, { keepDirty: true, meta: live ?? undefined })) {
+      setHistoryFor(null);
+      setProjectsOpen(false);
+    }
+  }
+
   async function doDeleteCloud(id: string) {
-    if (!window.confirm("Delete this layout for everyone?")) return;
+    if (!window.confirm("Delete this layout for everyone? Its saved history is deleted with it.")) return;
     setCloudBusy(true);
     const ok = await deleteProject(id);
     setCloudBusy(false);
@@ -307,6 +336,7 @@ export default function App() {
   const [showBom, setShowBom] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
   const [insertFor, setInsertFor] = useState<{ kind: "element" | "group"; id: string; name: string } | null>(null);
+  const [historyFor, setHistoryFor] = useState<{ id: string; name: string; revs: RevisionSummary[] } | null>(null);
   const checkSvc = async () => {
     setSvc((s) => (s === "online" ? s : "checking"));
     setSvc((await ping()) ? "online" : "offline");
@@ -955,6 +985,11 @@ export default function App() {
           onInsert={doInsertBeside} onCancel={() => setInsertFor(null)} />
       )}
 
+      {historyFor && (
+        <RevisionsModal projectName={historyFor.name} revisions={historyFor.revs} busy={cloudBusy}
+          onRestore={doRestoreRevision} onClose={() => setHistoryFor(null)} />
+      )}
+
       {rowEdit && (
         <input className="rowedit" type="number" autoFocus defaultValue={rowEdit.value}
           style={{ left: rowEdit.x, top: rowEdit.y }}
@@ -979,6 +1014,7 @@ export default function App() {
                       <span className="pn">{p.name || "Untitled"}</span>
                       <span className="pm" title={new Date(p.updated_at).toLocaleString()}>saved by {p.updated_by_name ?? p.owner_name ?? "—"} · {timeAgo(p.updated_at)}</span>
                     </button>
+                    <button type="button" className="dup" disabled={cloudBusy} title="History — restore an earlier save" onClick={() => openHistory(p)}>⟲</button>
                     <button type="button" className="dup" disabled={cloudBusy} title="Duplicate into a new project" onClick={() => doDuplicateFromList(p)}>⧉</button>
                     <button type="button" className="danger" disabled={cloudBusy} title="Delete" onClick={() => doDeleteCloud(p.id)}>✕</button>
                   </li>

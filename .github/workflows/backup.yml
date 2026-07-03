@@ -1,0 +1,52 @@
+name: Nightly backup
+
+# Dumps the team's drawings (projects + shared library + allowlist) to a PRIVATE
+# Supabase Storage bucket `backups` every night (RISK_REVIEW R1). Files rotate by
+# day-of-month (backup-01.json … backup-31.json), so ~a month of restore points
+# with zero cleanup logic. NOT a GitHub artifact — this repo is public and the
+# drawings must stay private.
+#
+# Needs repo Actions secrets: SUPABASE_URL + SUPABASE_SERVICE_KEY (service_role —
+# server-side only; GitHub encrypts secrets and scheduled runs never expose them
+# to forks). If either is unset, the job no-ops.
+
+on:
+  schedule:
+    - cron: "23 19 * * *" # daily 19:23 UTC ≈ 02:23 Asia/Bangkok
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump tables to the backups bucket
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "Backup secrets not set — skipping."
+            exit 0
+          fi
+          auth=(-H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+
+          fetch() { # table -> file, fail loudly on non-200
+            code=$(curl -s -o "$2" -w "%{http_code}" "${auth[@]}" "$SUPABASE_URL/rest/v1/$1?select=*")
+            if [ "$code" != "200" ]; then echo "FETCH $1 failed: HTTP $code"; cat "$2"; exit 1; fi
+          }
+          fetch projects projects.json
+          fetch library_items library.json
+          fetch allowed_emails emails.json
+
+          jq -n --slurpfile p projects.json --slurpfile l library.json --slurpfile e emails.json \
+            '{taken_at: (now | todate), projects: $p[0], library_items: $l[0], allowed_emails: $e[0]}' \
+            > dump.json
+          echo "dump size: $(wc -c < dump.json) bytes, $(jq '.projects | length' dump.json) projects"
+
+          day=$(date -u +%d)
+          code=$(curl -s -o upload.out -w "%{http_code}" -X POST \
+            "${auth[@]}" -H "Content-Type: application/json" -H "x-upsert: true" \
+            --data-binary @dump.json \
+            "$SUPABASE_URL/storage/v1/object/backups/backup-$day.json")
+          if [ "$code" != "200" ]; then echo "UPLOAD failed: HTTP $code"; cat upload.out; exit 1; fi
+          echo "Uploaded backups/backup-$day.json"

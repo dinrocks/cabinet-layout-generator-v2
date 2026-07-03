@@ -32,7 +32,7 @@ damage), and how to fix each item. The **actionable priority list lives in
 
 ## 2. Top risks, ranked by expected damage
 
-### R1 — A whole drawing can be lost in one save (no history, no backup)  ⚠ highest
+### R1 — A whole drawing can be lost in one save (no history, no backup)  ✅ FIXED
 
 **Why it's the #1 risk.** Each project is **one jsonb row, overwritten in place** on every Save
 (`public.projects.layout`). Supabase's free tier has **no point-in-time recovery**, and RLS lets
@@ -42,14 +42,16 @@ project — or an empty/broken local state — and hits **Save**. The previous d
 permanently, with no way back. The drawings are now the most valuable data in the system;
 everything else (parts, service, hosting) is recoverable by re-uploading or redeploying.
 
-**How to fix (two complementary layers):**
-1. **Project revisions** — a `project_revisions` table (`project_id`, `rev`, `layout` jsonb,
-   `saved_by`, `saved_at`). On every save, also insert a revision row; keep the last ~20 per
-   project (trim in the same statement or a scheduled job). Add a "History…" list in the Open
-   dialog to restore one. Cheap: one table + one extra insert on save.
-2. **Nightly backup** — a GitHub Action (cron, like `keepalive.yml`) that dumps the `projects`
-   table via the REST API to a workflow artifact or a private repo. Even 30 days of retention
-   turns "gone forever" into "restore from last night".
+**How it was fixed (two complementary layers, shipped 2026-07-03):**
+1. **Project revisions** — `project_revisions` (layout+library snapshot, saved_by/at), written on
+   every save, trimmed to the last 20 per project by a SECURITY DEFINER trigger (append-only RLS:
+   members read/insert, no update/delete). The Open dialog's **⟲ History** restores any revision
+   *into the editor as unsaved work* — the live row is untouched until a normal (guarded) Save.
+   Deleting a project cascades its history away — deletion is covered by layer 2.
+2. **Nightly backup** — `.github/workflows/backup.yml` (cron 19:23 UTC ≈ 02:23 Bangkok) dumps
+   projects + library_items + allowed_emails via PostgREST (service key from an Actions secret)
+   into the **private Storage bucket `backups`**, one file per day-of-month (~30 rolling restore
+   points, zero cleanup). Deliberately NOT a GitHub artifact — the repo is public.
 
 ### R2 — Silent work loss in the browser (no unsaved-changes guard)  ✅ FIXED
 
@@ -151,7 +153,7 @@ references — self-healing for existing projects. Alternatively clean up in `de
 |---|------|-------|--------|
 | 1 | ✅ `beforeunload` dirty-guard (+ localStorage draft) — shipped 2026-07-02 | R2 | done |
 | 2 | ✅ Multi-user safety: last-saved-by + stale-save warning — shipped 2026-07-02 | R3 | done |
-| 3 | Project revisions (last ~20 saves) + nightly backup Action | R1 | ~½ day |
+| 3 | ✅ Project revisions (last 20 saves) + nightly backup Action — shipped 2026-07-03 | R1 | done |
 | 4 | Upload size cap on the service | R4 | minutes |
 | 5 | Sample DXF in repo → full assembler harness in CI | CI gap | ~1 h |
 | 6 | Shared-part delete: cross-project usage warning | R5 | small |
