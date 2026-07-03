@@ -5,7 +5,7 @@
  * Deliberate close only (Insert / Cancel / Esc).
  */
 import { useState, useEffect } from "react";
-import { BANDS } from "../model/library";
+import { BANDS, byName } from "../model/library";
 import type { Library } from "../model/types";
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function InsertModal({ library, anchorName, onInsert, onCancel }: Props) {
-  const items = Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate));
+  const items = Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate)).sort(byName);
   const [libKey, setLibKey] = useState(items[0]?.lib_key ?? "");
   const [side, setSide] = useState<"left" | "right">("right");
   const [count, setCount] = useState(1);

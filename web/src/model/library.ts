@@ -60,6 +60,13 @@ export const BANDS = [
 /** Categories whose parts behave as stoppers (get the "Add label plate" pairing; BOM type tag). */
 export const STOPPER_BANDS: ReadonlySet<number> = new Set([6, 7]);
 
+const _nameColl = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+/** A→Z comparator for library items by display name (numeric-aware, case-insensitive),
+ *  so every part list (sidebar, Add-a-set, caps, Insert) reads alphabetically. */
+export function byName(a: { name: string }, b: { name: string }): number {
+  return _nameColl.compare(a.name || "", b.name || "");
+}
+
 /**
  * NOTE: the product no longer seeds the palette from this — the editor starts with
  * an EMPTY library and is populated by uploads (per the AMR house-style cleanup).

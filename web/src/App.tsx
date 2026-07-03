@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { newModel } from "./model/factory";
-import { BANDS, STOPPER_BANDS } from "./model/library";
+import { BANDS, STOPPER_BANDS, byName } from "./model/library";
 import type { Library, DxfLibItem, RectLibItem, LayoutModel } from "./model/types";
 import { validate } from "./model/validate";
 import { useAuth } from "./auth/AuthContext";
@@ -727,7 +727,7 @@ export default function App() {
         )}
 
         {BANDS.map((band) => {
-          const items = Object.values(library).filter((it) => it.band === band.band);
+          const items = Object.values(library).filter((it) => it.band === band.band).sort(byName);
           return (
             <div key={band.band} className="band">
               <div className="band-name">{band.band}. {band.name}</div>
@@ -756,7 +756,7 @@ export default function App() {
         <div className="addset">
           <div className="band-name">Add a set</div>
           <select value={setLibKey} onChange={(e) => setSetLibKey(e.target.value)}>
-            {Object.values(library).map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name}</option>)}
+            {Object.values(library).sort(byName).map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name}</option>)}
           </select>
           <div className="addset-row">
             <label>× <input type="number" min={1} value={setCount} onChange={(e) => setSetCount(Math.max(1, parseInt(e.target.value) || 1))} /></label>
@@ -766,14 +766,14 @@ export default function App() {
           <label className="addset-cap">start
             <select value={setCapStart} onChange={(e) => setSetCapStart(e.target.value)}>
               <option value="">— none —</option>
-              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate)).sort(byName)
                 .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
             </select>
           </label>
           <label className="addset-cap">end
             <select value={setCapEnd} onChange={(e) => setSetCapEnd(e.target.value)}>
               <option value="">— none —</option>
-              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+              {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate)).sort(byName)
                 .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
             </select>
           </label>
@@ -889,14 +889,14 @@ export default function App() {
             <Row label="Start cap">
               <select value={selGroup.cap_start_key ?? ""} onChange={(e) => set(updateGroup(model, selGroup.id, { cap_start_key: e.target.value || null }))}>
                 <option value="">— none —</option>
-                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate)).sort(byName)
                   .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
               </select>
             </Row>
             <Row label="End cap">
               <select value={selGroup.cap_end_key ?? ""} onChange={(e) => set(updateGroup(model, selGroup.id, { cap_end_key: e.target.value || null }))}>
                 <option value="">— none —</option>
-                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate))
+                {Object.values(library).filter((it) => !(it.source === "rect" && it.label_plate)).sort(byName)
                   .map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name || "(unnamed)"}</option>)}
               </select>
             </Row>

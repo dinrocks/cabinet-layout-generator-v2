@@ -18,6 +18,11 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
   Actions secret (kept out of GitHub artifacts — the repo is public).
 
+### Changed — parts listed alphabetically
+- Every part list — the sidebar under each category, **ADD A SET**, the start/end **cap** pickers, and
+  the **Insert beside** dialog — now sorts **A→Z by name** (numeric-aware, case-insensitive) instead of
+  by the order parts were added. Presentation only; nothing about the model/exports changes.
+
 ### Added — bulk selection (marquee, select-row, Ctrl+A)
 - **Shift+drag rubber-band selection** with the CAD window/crossing rule: drag **left→right** (solid
   blue) selects only what's **fully inside**; **right→left** (dashed green) selects anything **touched**
