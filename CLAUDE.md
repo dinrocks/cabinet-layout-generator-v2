@@ -156,3 +156,15 @@ before the final host/domain is settled (callbacks are per-domain). The ezdxf ro
 - Remaining `confirm:true` library dimensions (IDEC IO modules, Degson 2C/4C, PSU, relays, modem,
   enclosure templates) are estimates — replace with datasheet/DXF-measured values before production use.
 - Confirm horizontal duct is **40×60** (not 40×80) for the house style.
+
+---
+
+## 9. Working process (the loop — full text in docs/WORKFLOW.md)
+
+Propose (+ ask 2–4 real options when the choice changes the outcome; **never guess — "don't
+magic"**) → ground the design in the actual code → build bottom-up (pure core + tests → all
+**three renderers** → UI) → verify (typecheck · lint · test · build + service harnesses) →
+improve/de-risk pass → commit one coherent change (what + why, `git commit -F <file>`) → push →
+**watch CI to green** → document in the same commit per the doc map (CHANGELOG / ROADMAP /
+RISK_REVIEW / PHASE2_SETUP / REFERENCE) → sync assistant memory → tell the user what shipped, how
+to try it, and what's pending on their side. Palette/tree/stack lookups: **docs/REFERENCE.md**.
