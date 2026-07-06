@@ -29,13 +29,15 @@ the project.
 
 ## Now / In progress
 
-_Next: the hardening block below (from the risk review), starting with the dirty-guard and
-multi-user safety._
+_**Feature-driven.** The hardening block is done (below) except the deferred tech-debt item.
+Build what real cabinet work bumps into next; the best recent features (insert-beside, set caps,
+marquee, folders, tag ranges) all came from real-use friction, not a backlog._
 
-## Hardening block — protect the drawings (from [docs/RISK_REVIEW.md](docs/RISK_REVIEW.md), 2026-07-02)
+## Hardening block — COMPLETE except #8 (from [docs/RISK_REVIEW.md](docs/RISK_REVIEW.md), 2026-07-02)
 
-A whole-project risk review ranked what can actually hurt us. Full reasoning (the *why* and the
-failure stories) lives in the review doc; this is the build order:
+A whole-project risk review ranked what can actually hurt us; **R1–R6 + the CI gap are all fixed**
+(2026-07-02→03). Full reasoning (the *why* and the failure stories) lives in the review doc. Only
+the tech-debt item (#8) remains — deliberately deferred (see the **Deferred** section below).
 
 1. ✅ **Unsaved-changes guard** — DONE (2026-07-02): dirty tracking via save-snapshot comparison,
    "● unsaved" chip, `beforeunload` warning, confirm on New/**Open** (Open previously discarded
@@ -55,8 +57,24 @@ failure stories) lives in the review doc; this is the build order:
    parts + cap-aware current-layout check (exact RPC scan a future refinement). → R5
 7. ✅ **Orphaned lib-item cleanup on save** — DONE (2026-07-03): `cleanProjectLocal` drops unplaced
    label-plate/custom items (keeps uploads). → R6
-8. **Docs refresh + `App.tsx` split** — guide/README predate categories 1–8/BOM/rail-line/toolbar;
-   App.tsx (~800 lines) wants splitting into Toolbar / LibrarySidebar / PropertiesPanel / modals.
+8. ⏳ **Docs refresh + `App.tsx` split** — the only remaining item; **deferred**, see below.
+
+## Deferred — do later (no urgency)
+
+### Tech-debt cleanup (hardening #8)
+Not user-facing and nothing's broken — pick it up when onboarding needs the docs, or when App.tsx
+gets painful to edit. Two independent parts:
+
+- **Docs / guide refresh.** `guide.html` (the in-app "? Guide") and the README screenshots predate
+  a LOT: categories 1–8, the BOM (shop columns + manual rows + tag ranges), the DXF-origin rail
+  line, label plates, set caps + insert-beside, the marquee/select-row, folders, project history,
+  and the regrouped toolbar. A new teammate reading the guide today sees a different app. Trigger:
+  before onboarding anyone, or when you want the public README to actually sell the current tool.
+- **Split `App.tsx` (~900 lines).** It absorbs the toolbar, all modals, the library sidebar, the
+  properties panel, the Open dialog and every handler. The model/core stays clean; the shell is
+  accreting. Extract components — `Toolbar`, `LibrarySidebar`, `PropertiesPanel`, `OpenDialog` —
+  and group the cloud/project handlers into a hook (e.g. `useCloudProjects`). Pure refactor, no
+  behaviour change; do it when a feature edit there starts feeling slow, not before.
 
 ## Backlog (deferred, in rough priority order)
 
