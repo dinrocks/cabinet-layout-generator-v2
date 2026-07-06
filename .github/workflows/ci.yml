@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
 
   service:
-    name: service (deps · import smoke)
+    name: service (deps · import · harnesses)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -42,3 +42,9 @@ jobs:
       - run: pip install -r requirements.txt
       - name: import smoke test
         run: python -c "import app; print('service imports OK')"
+      - name: assembler harness (self-contained sample DXF)
+        run: python test_build.py
+      - name: JWT auth harness
+        run: python test_auth.py
+      - name: rail-datum capture harness
+        run: python test_upload_rail.py

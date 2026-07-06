@@ -123,11 +123,10 @@ never loses a part. Tested in `persist.test.ts`.
 
 ## 3. Warning spots (watch; low effort, not urgent)
 
-- **CI doesn't test the assembler.** The service CI job is an *import smoke* only (`ci.yml`).
-  The real harness `service/test_build.py` can't run in CI because it hardcodes the FC6A sample
-  path on the engineer's OneDrive. **Fix:** commit a small real DXF into the repo (e.g.
-  `service/testdata/`) and make the harness path-relative — then WIPEOUT/rotation/tag/BOM-block
-  regressions are caught on every push.
+- ✅ **CI now runs the assembler harness** (2026-07-03). `service/test_build.py` was rewritten to
+  build a **synthetic sample DXF in memory** (no OneDrive dependency, no proprietary file committed),
+  so it — plus `test_auth.py` and `test_upload_rail.py` — run in CI on every push. WIPEOUT / rotation /
+  set-cap / tag / block-count regressions now fail CI, not just my local run.
 - **Render free-tier monthly hours.** Keep-alive (`keepalive.yml`) correctly targets **Supabase**
   (free projects pause after ~7 idle days). Render cold-start is tolerated by design ("waking
   service…") — but Render free also has **monthly instance-hour limits**. If DXF export starts
@@ -158,7 +157,7 @@ never loses a part. Tested in `persist.test.ts`.
 | 2 | ✅ Multi-user safety: last-saved-by + stale-save warning — shipped 2026-07-02 | R3 | done |
 | 3 | ✅ Project revisions (last 20 saves) + nightly backup Action — shipped 2026-07-03 | R1 | done |
 | 4 | ✅ Upload size cap on the service — shipped 2026-07-03 | R4 | done |
-| 5 | Sample DXF in repo → full assembler harness in CI | CI gap | ~1 h |
+| 5 | ✅ Assembler harness in CI (synthetic sample) — shipped 2026-07-03 | CI gap | done |
 | 6 | ✅ Shared-part delete: cross-project warning (static) — shipped 2026-07-03 | R5 | done |
 | 7 | ✅ Orphaned lib-item cleanup on save — shipped 2026-07-03 | R6 | done |
 | 8 | Guide/README refresh · `App.tsx` split | drift | when convenient |

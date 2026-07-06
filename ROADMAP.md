@@ -49,8 +49,8 @@ failure stories) lives in the review doc; this is the build order:
    (day-of-month rotation). Provisioning: re-run schema.sql, create the bucket, add the
    SUPABASE_SERVICE_KEY Actions secret. → R1
 4. ✅ **Upload size cap** — DONE (2026-07-03): `/upload` reads in chunks and 413s past 20 MB. → R4
-5. **Assembler harness in CI** — commit a small sample DXF (`service/testdata/`) and de-hardcode
-   the OneDrive path in `test_build.py`, so WIPEOUT/rotation/tag regressions fail CI. (~1 h)
+5. ✅ **Assembler harness in CI** — DONE (2026-07-03): `test_build.py` builds a synthetic sample DXF
+   in memory (no OneDrive dep); CI runs it + test_auth + test_upload_rail on every push.
 6. ✅ **Shared-part delete: cross-project warning** — DONE (2026-07-03): static warning for shared
    parts + cap-aware current-layout check (exact RPC scan a future refinement). → R5
 7. ✅ **Orphaned lib-item cleanup on save** — DONE (2026-07-03): `cleanProjectLocal` drops unplaced
