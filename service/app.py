@@ -51,11 +51,27 @@ def health() -> dict[str, Any]:
     }
 
 
+# Equipment DXFs are well under 1 MB; cap the read so a huge/wrong file can't OOM
+# the free-tier instance for everyone (RISK_REVIEW R4). Read in chunks and bail
+# past the cap rather than loading the whole body into memory.
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+
 @app.post("/upload")
 async def upload(file: UploadFile = File(...), _user: str | None = Depends(require_user)) -> dict[str, Any]:
     if not file.filename or not file.filename.lower().endswith(".dxf"):
         raise HTTPException(400, "Expected a .dxf file.")
-    data = await file.read()
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 256)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "DXF too large (max 20 MB). A real equipment part is well under 1 MB.")
+        chunks.append(chunk)
+    data = b"".join(chunks)
     try:
         result = dxf_upload.process_upload(data)
     except Exception as exc:  # surface parse errors honestly, never guess

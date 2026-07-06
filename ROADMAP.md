@@ -48,14 +48,13 @@ failure stories) lives in the review doc; this is the build order:
    backup Action dumping projects/library/allowlist to the private `backups` Storage bucket
    (day-of-month rotation). Provisioning: re-run schema.sql, create the bucket, add the
    SUPABASE_SERVICE_KEY Actions secret. → R1
-4. **Upload size cap** — `/upload` reads unbounded bytes into a 512 MB Render instance; reject
-   > ~20 MB early. (minutes) → R4
+4. ✅ **Upload size cap** — DONE (2026-07-03): `/upload` reads in chunks and 413s past 20 MB. → R4
 5. **Assembler harness in CI** — commit a small sample DXF (`service/testdata/`) and de-hardcode
    the OneDrive path in `test_build.py`, so WIPEOUT/rotation/tag regressions fail CI. (~1 h)
-6. **Shared-part delete: cross-project warning** — deleting a shared part currently only checks
-   the open layout; warn when saved projects reference the `lib_key`. → R5
-7. **Orphaned lib-item cleanup on save** — drop project-local label-plate/custom lib items no
-   element references (they currently accumulate in the project jsonb). → R6
+6. ✅ **Shared-part delete: cross-project warning** — DONE (2026-07-03): static warning for shared
+   parts + cap-aware current-layout check (exact RPC scan a future refinement). → R5
+7. ✅ **Orphaned lib-item cleanup on save** — DONE (2026-07-03): `cleanProjectLocal` drops unplaced
+   label-plate/custom items (keeps uploads). → R6
 8. **Docs refresh + `App.tsx` split** — guide/README predate categories 1–8/BOM/rail-line/toolbar;
    App.tsx (~800 lines) wants splitting into Toolbar / LibrarySidebar / PropertiesPanel / modals.
 

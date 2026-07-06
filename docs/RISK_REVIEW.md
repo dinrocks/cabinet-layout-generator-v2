@@ -83,16 +83,17 @@ you opened it" with **overwrite** (re-save using the server's version as the new
 row (embeds `profiles!projects_updated_by_fkey`). Restored drafts save unconditionally (base is null)
 — an accepted edge case. Not yet done (optional): realtime presence ("<name> has this open now").
 
-### R4 — The DXF service accepts unbounded uploads
+### R4 — The DXF service accepts unbounded uploads  ✅ FIXED
 
 **Why.** `/upload` does `await file.read()` with **no size cap** (`service/app.py`). A huge or
 accidental wrong file gets read fully into memory on a **512 MB free Render instance** — one
 request can OOM-kill the service for everyone (real equipment DXFs are < 1 MB).
 
-**How.** Reject early: check `Content-Length` and/or read up to a cap (~20 MB) and 413 past it.
-A few lines; do it next time the service is touched.
+**How it was fixed.** `/upload` now reads the body in 256 KB chunks and 413s once it passes a
+20 MB cap (`MAX_UPLOAD_BYTES` in `service/app.py`) — memory stays bounded, one bad file can't OOM
+the instance.
 
-### R5 — Deleting a shared part quietly breaks other projects
+### R5 — Deleting a shared part quietly breaks other projects  ✅ FIXED (mitigated)
 
 **Why.** The library ✕ delete warns only if the part is placed **in the currently open layout**
 (`App.tsx` — `deleteLibraryPart`). A shared part used by five *saved* projects can be deleted with
@@ -100,21 +101,23 @@ no hint; those projects then open with unresolved red placeholders and **can't D
 missing block. (Storage objects are never garbage-collected, so the block bytes still exist —
 but nothing references them.)
 
-**How.** Before deleting a shared part, query saved projects for usage (`layout` jsonb contains
-the `lib_key`) and name the affected projects in the confirm dialog. Minimum viable: a static
-warning "may be used by other saved projects — their placements will break". Related invariant:
-**deleting a `library_items` row must not delete the Storage block** (old exports/projects may
-still reference it) — cheap storage is the right trade.
+**How it was fixed (mitigated).** The delete confirm now warns for **shared** parts that they may
+be used by other saved projects (and that placements would break) — plus the current-layout check
+now includes set caps. Still a **static** warning, not an exact cross-project scan; an accurate
+count would need a Postgres RPC over the `layout` jsonb (future refinement). The Storage block is
+never deleted with the `library_items` row — old exports/projects can still reference it.
 
-### R6 — Slow leak: orphaned per-instance library items
+### R6 — Slow leak: orphaned per-instance library items  ✅ FIXED
 
 **Why.** "Add label plate" and custom parts **mint a per-instance lib item** (`lbl_*`, custom
 keys) stored in the project's local library. Deleting the placed element (`deleteSelected` →
 `deleteEntity`) removes the *elements* but never the lib item — so dead entries accumulate in the
 project jsonb forever. Harmless short-term; bloat and confusion long-term.
 
-**How.** On save (in `projectLocal()`), drop project-local lib items that no element/group
-references — self-healing for existing projects. Alternatively clean up in `deleteEntity` itself.
+**How it was fixed.** `cleanProjectLocal(model, library, sharedKeys)` (used by `saveProject`) drops
+project-local **label_plate/custom** items no element/group/cap references — self-healing on the
+next save. Uploaded DXF parts are always kept (even unplaced), so an upload-then-save-before-place
+never loses a part. Tested in `persist.test.ts`.
 
 ---
 
@@ -154,10 +157,10 @@ references — self-healing for existing projects. Alternatively clean up in `de
 | 1 | ✅ `beforeunload` dirty-guard (+ localStorage draft) — shipped 2026-07-02 | R2 | done |
 | 2 | ✅ Multi-user safety: last-saved-by + stale-save warning — shipped 2026-07-02 | R3 | done |
 | 3 | ✅ Project revisions (last 20 saves) + nightly backup Action — shipped 2026-07-03 | R1 | done |
-| 4 | Upload size cap on the service | R4 | minutes |
+| 4 | ✅ Upload size cap on the service — shipped 2026-07-03 | R4 | done |
 | 5 | Sample DXF in repo → full assembler harness in CI | CI gap | ~1 h |
-| 6 | Shared-part delete: cross-project usage warning | R5 | small |
-| 7 | Orphaned lib-item cleanup on save | R6 | small |
+| 6 | ✅ Shared-part delete: cross-project warning (static) — shipped 2026-07-03 | R5 | done |
+| 7 | ✅ Orphaned lib-item cleanup on save — shipped 2026-07-03 | R6 | done |
 | 8 | Guide/README refresh · `App.tsx` split | drift | when convenient |
 
 Items 1–3 share one theme: **protect the drawings** — now the most valuable thing in the system.

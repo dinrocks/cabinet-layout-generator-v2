@@ -4,8 +4,8 @@ import { newModel } from "../model/factory";
 import { validate } from "../model/validate";
 import { SEED_LIBRARY } from "../model/library";
 import { addElement } from "../model/edit";
-import { projectLocal } from "./projectStore";
-import type { LayoutModel, Library, RectLibItem, DxfLibItem } from "../model/types";
+import { projectLocal, cleanProjectLocal } from "./projectStore";
+import type { LayoutModel, Library, RectLibItem, DxfLibItem, Element } from "../model/types";
 
 // The cloud + local stores both persist the layout as plain JSON, then re-validate
 // it on load. These pure tests guard that contract (the stores themselves need a
@@ -40,5 +40,41 @@ describe("projectLocal library filter (what a project carries itself)", () => {
 
     const kept = projectLocal(library, new Set(["up_shared"]));
     expect(Object.keys(kept).sort()).toEqual(["custom_x", "up_local"]); // seed + shared excluded
+  });
+});
+
+describe("cleanProjectLocal (orphan cleanup on save)", () => {
+  const el = (id: string, lib_key: string): Element => ({ id, lib_key, tag: "", x_mm: 0, y_mm: 0, rot_deg: 0,
+    gap_before_mm: 0.1, clearance_to_duct_mm: 3, group_id: null, locked: false });
+  const base = (els: Element[]): LayoutModel => ({
+    project: { id: "p", name: "T", panel_tag: "", rev: "A" },
+    plate: { width_mm: 800, height_mm: 1000, origin: "top_left" },
+    defaults: { gap_between_equipment_mm: 0.1, clearance_equipment_to_duct_mm: 3 },
+    ducts: [], elements: els, groups: [], labels: [],
+    display: { show_row_clearance_dims: true, snap_enabled: true },
+  });
+
+  it("drops unplaced label-plate/custom items but keeps placed ones and all uploads", () => {
+    const lib: Library = {
+      lbl_used: { lib_key: "lbl_used", source: "rect", name: "", label_plate: true, width_mm: 9, height_mm: 43 },
+      lbl_orphan: { lib_key: "lbl_orphan", source: "rect", name: "", label_plate: true, width_mm: 9, height_mm: 43 },
+      cust_used: { lib_key: "cust_used", source: "rect", name: "ACME", width_mm: 60, height_mm: 40, custom: true },
+      cust_orphan: { lib_key: "cust_orphan", source: "rect", name: "DEAD", width_mm: 60, height_mm: 40, custom: true },
+      up_unplaced: { lib_key: "up_unplaced", source: "dxf", name: "Uploaded", width_mm: 30, height_mm: 30, block_ref: "b", svg_ref: "" },
+    };
+    const model = base([el("e1", "lbl_used"), el("e2", "cust_used")]); // orphans + upload not placed
+    const kept = cleanProjectLocal(model, lib, new Set());
+    expect(Object.keys(kept).sort()).toEqual(["cust_used", "lbl_used", "up_unplaced"]);
+  });
+
+  it("keeps a cap part referenced only by a set", () => {
+    const lib: Library = {
+      cover_orphan: { lib_key: "cover_orphan", source: "rect", name: "", label_plate: true, width_mm: 2, height_mm: 43 },
+    };
+    // the label-plate part is used only as a set cap → must be kept
+    const model: LayoutModel = { ...base([]), groups: [{ id: "g", kind: "set", lib_key: "term", count: 2,
+      internal_gap_mm: 0.1, tag_start: null, tag_step: 1, x_mm: 0, y_mm: 0, rot_deg: 0, exploded: false, label_id: null,
+      cap_end_key: "cover_orphan" }] };
+    expect(Object.keys(cleanProjectLocal(model, lib, new Set()))).toEqual(["cover_orphan"]);
   });
 });

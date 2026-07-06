@@ -18,6 +18,34 @@ export function projectLocal(library: Library, sharedKeys: ReadonlySet<string>):
   );
 }
 
+/** Every lib_key the model actually places (elements, sets, and set caps). */
+function referencedKeys(model: LayoutModel): Set<string> {
+  const s = new Set<string>();
+  for (const e of model.elements) s.add(e.lib_key);
+  for (const g of model.groups) {
+    s.add(g.lib_key);
+    if (g.cap_start_key) s.add(g.cap_start_key);
+    if (g.cap_end_key) s.add(g.cap_end_key);
+  }
+  return s;
+}
+
+/**
+ * Project-local library for saving, minus **orphaned per-instance items** — the
+ * `label_plate`/`custom` parts minted at placement that nothing references any
+ * more (they accumulate forever otherwise; RISK_REVIEW R6). Uploaded DXF parts are
+ * always kept, even unplaced, so an upload-then-save-before-placing never loses them.
+ */
+export function cleanProjectLocal(model: LayoutModel, library: Library, sharedKeys: ReadonlySet<string>): Library {
+  const used = referencedKeys(model);
+  return Object.fromEntries(
+    Object.entries(projectLocal(library, sharedKeys)).filter(([k, it]) => {
+      const perInstance = it.source === "rect" && (it.label_plate === true || it.custom === true);
+      return !perInstance || used.has(k);
+    }),
+  );
+}
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -149,7 +177,7 @@ export async function saveProject(
     panel_tag: p.panel_tag ?? "",
     rev: p.rev || "A",
     layout: model,
-    library: projectLocal(library, sharedKeys),
+    library: cleanProjectLocal(model, library, sharedKeys),
     updated_by: userId,
     updated_at: now,
   };

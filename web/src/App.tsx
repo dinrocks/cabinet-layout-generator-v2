@@ -612,10 +612,13 @@ export default function App() {
 
   /** Remove a part from the library (and the shared catalog if shared — admin RLS). */
   async function deleteLibraryPart(libKey: string) {
-    const inUse = model.elements.some((e) => e.lib_key === libKey) || model.groups.some((g) => g.lib_key === libKey);
-    const msg = inUse
-      ? "This part is placed in the current layout — deleting it leaves those items unresolved. Delete from the library anyway?"
-      : "Delete this part from the library?";
+    const shared = !!sharedLib[libKey];
+    const inUse = model.elements.some((e) => e.lib_key === libKey)
+      || model.groups.some((g) => g.lib_key === libKey || g.cap_start_key === libKey || g.cap_end_key === libKey);
+    let msg = inUse ? "This part is placed in the current layout — deleting it leaves those items unresolved. " : "";
+    msg += shared
+      ? "It's a SHARED part and may also be used in other saved projects, whose placements would then break. Delete from the shared library for everyone?"
+      : (inUse ? "Delete from the library anyway?" : "Delete this part from the library?");
     if (!window.confirm(msg)) return;
     setLibrary((l) => { const c = { ...l }; delete c[libKey]; return c; });
     if (sharedLib[libKey]) {

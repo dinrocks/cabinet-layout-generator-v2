@@ -18,6 +18,15 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
   Actions secret (kept out of GitHub artifacts — the repo is public).
 
+### Hardening (RISK_REVIEW R4–R6)
+- **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
+  huge/wrong file can't OOM the free-tier instance for everyone. (R4)
+- **Safer shared-part delete** — the delete confirm now warns that a **shared** part may be used by
+  *other* saved projects (their placements would break), and the current-layout check now includes set
+  caps. (R5)
+- **Orphan cleanup on save** — unplaced per-instance label-plate/custom parts are dropped from the saved
+  project (they used to accumulate forever); uploaded parts are always kept even if not yet placed. (R6)
+
 ### Added — folders for layouts
 - Group layouts into **team-shared folders** (one level) — e.g. all the cabinets of one job under
   "Job X". The **Open dialog is now grouped**: collapsible folder sections (with a count) + an **Unfiled**
