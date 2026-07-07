@@ -1,15 +1,17 @@
 /**
  * Compose a paper-sized SVG "page" around the plate render, for PDF/PNG export.
  *
- * The drawing auto-fits the chosen paper (A3/A4), the orientation that yields the
- * larger drawing is chosen automatically, and a title line prints the RESULTING
- * scale + paper size, e.g. "SCALE 1:12 — PAPER SIZE: A3". (brief §6.)
+ * The page is a real drawing SHEET (AMR template): frame + zone grid + title band
+ * (model/sheet.ts), with the drawing auto-fitted into the sheet's draw area and
+ * the RESULTING scale printed in the SCALE cell (e.g. "1:10"). Orientation is
+ * whichever yields the larger drawing. (brief §6.)
  *
  * Everything is in millimetres so the same SVG drives both a vector PDF (svg2pdf
  * into a mm-unit jsPDF) and a rasterised PNG (mm → px at the chosen DPI).
  */
 import type { LayoutModel, Library } from "../model/types";
 import { renderPlateBody, contentWidth } from "./toSvg";
+import { sheetSpec, SHEET } from "../model/sheet";
 
 export type Paper = "A4" | "A3";
 
@@ -18,9 +20,6 @@ const PAPER_MM: Record<Paper, { w: number; h: number }> = {
   A4: { w: 210, h: 297 },
   A3: { w: 297, h: 420 },
 };
-
-const MARGIN_MM = 10;
-const TITLE_BAND_MM = 14; // reserved strip at the top for the title line
 
 export interface PageResult {
   /** Full page SVG string, sized in mm. */
@@ -44,21 +43,22 @@ interface Fit {
   scale: number;
 }
 
-/** Pick the orientation whose fit-to-page scale is larger (bigger drawing). */
-function bestFit(paper: Paper, plateW: number, plateH: number): Fit {
-  const base = PAPER_MM[paper];
-  const options: Fit[] = [
-    { ...orient(base.w, base.h, plateW, plateH), orientation: "portrait" } as Fit,
-    { ...orient(base.h, base.w, plateW, plateH), orientation: "landscape" } as Fit,
-  ];
-  return options[0].scale >= options[1].scale ? options[0] : options[1];
+/** The sheet's usable draw area for a given page size (mirrors sheetSpec). */
+function drawAreaDims(pageW: number, pageH: number): { w: number; h: number } {
+  const off = SHEET.outer_mm + SHEET.zone_mm + SHEET.pad_mm;
+  return { w: pageW - 2 * off, h: pageH - 2 * off - SHEET.band_mm };
 }
 
-function orient(pageW: number, pageH: number, plateW: number, plateH: number) {
-  const contentW = pageW - 2 * MARGIN_MM;
-  const contentH = pageH - 2 * MARGIN_MM - TITLE_BAND_MM;
-  const scale = Math.min(contentW / plateW, contentH / plateH);
-  return { pageW, pageH, scale };
+/** Pick the orientation whose fit-to-sheet scale is larger (bigger drawing). */
+function bestFit(paper: Paper, plateW: number, plateH: number): Fit {
+  const base = PAPER_MM[paper];
+  const mk = (pageW: number, pageH: number, orientation: Fit["orientation"]): Fit => {
+    const a = drawAreaDims(pageW, pageH);
+    return { pageW, pageH, orientation, scale: Math.min(a.w / plateW, a.h / plateH) };
+  };
+  const portrait = mk(base.w, base.h, "portrait");
+  const landscape = mk(base.h, base.w, "landscape");
+  return portrait.scale >= landscape.scale ? portrait : landscape;
 }
 
 export function composePageSvg(model: LayoutModel, library: Library, paper: Paper): PageResult {
@@ -68,21 +68,26 @@ export function composePageSvg(model: LayoutModel, library: Library, paper: Pape
   const scaleN = Math.max(1, Math.round(1 / fit.scale));
   const titleLine = `SCALE 1:${scaleN} — PAPER SIZE: ${paper}`;
 
-  // centre the fitted drawing horizontally within the content area
+  const sheet = sheetSpec(fit.pageW, fit.pageH, model.project, `1:${scaleN}`);
+
+  // centre the fitted drawing inside the sheet's draw area
   const drawnW = plateW * fit.scale;
   const drawnH = plateH * fit.scale;
-  const offsetX = (fit.pageW - drawnW) / 2;
-  const offsetY = MARGIN_MM + TITLE_BAND_MM + ((fit.pageH - MARGIN_MM - TITLE_BAND_MM - MARGIN_MM) - drawnH) / 2;
+  const offsetX = sheet.drawArea.x + (sheet.drawArea.w - drawnW) / 2;
+  const offsetY = sheet.drawArea.y + (sheet.drawArea.h - drawnH) / 2;
 
   const body = renderPlateBody(model, library);
+  const frame = [
+    ...sheet.lines.map((l) =>
+      `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="#111" stroke-width="${l.w}"/>`),
+    ...sheet.texts.map((t) =>
+      `<text x="${t.x}" y="${t.y}" font-size="${t.h}" fill="#111" text-anchor="${t.anchor}">${esc(t.text)}</text>`),
+  ].join("");
 
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${fit.pageW}" height="${fit.pageH}" viewBox="0 0 ${fit.pageW} ${fit.pageH}" font-family="Arial, Helvetica, sans-serif">`,
     `<rect x="0" y="0" width="${fit.pageW}" height="${fit.pageH}" fill="#ffffff"/>`,
-    // title line
-    `<text x="${MARGIN_MM}" y="${MARGIN_MM + 5}" font-size="4.5" fill="#111">${esc(titleLine)}</text>`,
-    `<text x="${MARGIN_MM}" y="${MARGIN_MM + 11}" font-size="3.5" fill="#555">${esc(model.project.name)}${model.project.panel_tag ? "  ·  " + esc(model.project.panel_tag) : ""}  ·  Rev ${esc(model.project.rev)}</text>`,
-    // the fitted drawing
+    frame,
     `<g transform="translate(${offsetX} ${offsetY}) scale(${fit.scale})">${body}</g>`,
     `</svg>`,
   ].join("");

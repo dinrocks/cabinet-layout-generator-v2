@@ -37,8 +37,17 @@ LAYERS = {
     "EQUIP": MONO,
     "TEXT": MONO,
     "GROUND": MONO,
+    "SHEET": MONO,  # paper-space frame + title block
 }
 TEXT_STYLE = "ARIAL"
+
+# ── drawing-sheet template (paper mm) — MUST match web/src/model/sheet.ts ──
+SHEET_OUTER_MM = 5.0
+SHEET_ZONE_MM = 7.0
+SHEET_BAND_MM = 30.0
+SHEET_PAD_MM = 2.0
+# standard plot scales 1:N — the smallest N that fits the draw area is chosen
+STD_SCALES = [1, 2, 2.5, 5, 10, 15, 20, 25, 50, 100]
 
 # Part-tag text heights (mm) — small + horizontal, matching the shop drawings. Fixed
 # per category; the Terminal-blocks category is smaller so a 2-digit number fits
@@ -386,6 +395,169 @@ class DxfAssembler:
         y = float(host["y_mm"]) + float(l.get("dy_mm", 0))
         self._text(l["text"], x, y, 10, rot_deg=float(l.get("rot_deg", 0)))
 
+    # ----- paper-space sheet (frame + zone grid + AMR title band + viewport) -----
+
+    def _paper_sheet(self, paper_w: float = 420.0, paper_h: float = 297.0) -> None:
+        """An A3-landscape layout tab: the AMR sheet template drawn at true paper mm
+        with a viewport onto the plate at a standard scale. Mirrors the arithmetic
+        of web/src/model/sheet.ts (top-left coords there; paper space is bottom-left,
+        so y flips through `fy`). Model space is untouched."""
+        layout = self.doc.layouts.new("A3 SHEET")
+        layout.page_setup(size=(int(paper_w), int(paper_h)), margins=(0, 0, 0, 0), units="mm")
+        sh = {"layer": "SHEET"}
+
+        def fy(y_top: float) -> float:
+            return paper_h - y_top
+
+        def line(x1: float, y1: float, x2: float, y2: float) -> None:
+            layout.add_line((x1, fy(y1)), (x2, fy(y2)), dxfattribs=sh)
+
+        def rect(x: float, y: float, w: float, h: float) -> None:
+            line(x, y, x + w, y); line(x, y + h, x + w, y + h)
+            line(x, y, x, y + h); line(x + w, y, x + w, y + h)
+
+        def text(s: str, x: float, y_base: float, h: float, anchor: str) -> None:
+            if not s:
+                return
+            align = (ezdxf.enums.TextEntityAlignment.BOTTOM_CENTER if anchor == "middle"
+                     else ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT)
+            t = layout.add_text(s, dxfattribs={"layer": "SHEET", "height": h, "style": TEXT_STYLE})
+            t.set_placement((x, fy(y_base)), align=align)
+
+        def label(x: float, y: float, s: str, h: float = 2.0) -> None:
+            text(s, x + 1, y + h + 0.8, h, "start")
+
+        def center(x: float, y: float, w: float, h_box: float, s: str, h: float = 3.0) -> None:
+            text(s, x + w / 2, y + h_box / 2 + h * 0.35, h, "middle")
+
+        p = self.model.get("project", {})
+        g = lambda k: str(p.get(k) or "")          # blank when unset (never invented)
+        dash = lambda k: str(p.get(k) or "-")
+
+        # frame + zone grid (cols 1..N top+bottom, rows A.. left+right)
+        o = SHEET_OUTER_MM
+        i = o + SHEET_ZONE_MM
+        in_x, in_y = i, i
+        in_w, in_h = paper_w - 2 * i, paper_h - 2 * i
+        rect(o, o, paper_w - 2 * o, paper_h - 2 * o)
+        rect(in_x, in_y, in_w, in_h)
+        cols = max(4, round(in_w / 40))
+        rows = max(3, round(in_h / 45))
+        col_w = in_w / cols
+        for c in range(cols + 1):
+            x = in_x + c * col_w
+            line(x, o, x, in_y); line(x, in_y + in_h, x, paper_h - o)
+            if c < cols:
+                cx = in_x + (c + 0.5) * col_w
+                text(str(c + 1), cx, (o + in_y) / 2 + 1.2, 3.2, "middle")
+                text(str(c + 1), cx, (in_y + in_h + paper_h - o) / 2 + 1.2, 3.2, "middle")
+        row_h = in_h / rows
+        for r in range(rows + 1):
+            y = in_y + r * row_h
+            line(o, y, in_x, y); line(in_x + in_w, y, paper_w - o, y)
+            if r < rows:
+                cy = in_y + (r + 0.5) * row_h + 1.2
+                text(chr(65 + r), (o + in_x) / 2, cy, 3.2, "middle")
+                text(chr(65 + r), (in_x + in_w + paper_w - o) / 2, cy, 3.2, "middle")
+
+        # bottom title band — sections: ref-drawings | remark | rev history | initials | title block
+        band_y = in_y + in_h - SHEET_BAND_MM
+        line(in_x, band_y, in_x + in_w, band_y)
+        widths = [f * in_w for f in (0.30, 0.12, 0.20, 0.08, 0.30)]
+        xs = [in_x]
+        for w in widths[:-1]:
+            xs.append(xs[-1] + w)
+        for x in xs[1:]:
+            line(x, band_y, x, band_y + SHEET_BAND_MM)
+
+        # [0] reference-drawings table
+        s0x, s0w = xs[0], widths[0]
+        for r in range(1, int(SHEET_BAND_MM / 5)):
+            line(s0x, band_y + r * 5, s0x + s0w, band_y + r * 5)
+        split = s0x + 0.42 * s0w
+        line(split, band_y, split, band_y + SHEET_BAND_MM)
+        center(s0x, band_y + SHEET_BAND_MM - 5, 0.42 * s0w, 5, "REFERENCE DRAWING NO.", 2.2)
+        center(split, band_y + SHEET_BAND_MM - 5, s0w - 0.42 * s0w, 5, "DESCRIPTION", 2.2)
+        # [1] remark
+        label(xs[1], band_y, "REMARK")
+        # [2] revision history (header at the bottom; newest row above it)
+        s2x, s2w = xs[2], widths[2]
+        for r in range(1, int(SHEET_BAND_MM / 5)):
+            line(s2x, band_y + r * 5, s2x + s2w, band_y + r * 5)
+        cw = [0.15 * s2w, 0.25 * s2w, 0.60 * s2w]
+        line(s2x + cw[0], band_y, s2x + cw[0], band_y + SHEET_BAND_MM)
+        line(s2x + cw[0] + cw[1], band_y, s2x + cw[0] + cw[1], band_y + SHEET_BAND_MM)
+        hy = band_y + SHEET_BAND_MM - 5
+        center(s2x, hy, cw[0], 5, "REV.", 2.2)
+        center(s2x + cw[0], hy, cw[1], 5, "DATE", 2.2)
+        center(s2x + cw[0] + cw[1], hy, cw[2], 5, "DESCRIPTION", 2.2)
+        center(s2x, hy - 5, cw[0], 5, g("rev"), 2.4)
+        center(s2x + cw[0], hy - 5, cw[1], 5, g("date"), 2.4)
+        center(s2x + cw[0] + cw[1], hy - 5, cw[2], 5, g("rev_desc"), 2.4)
+        # [3] initials
+        s3x, s3w = xs[3], widths[3]
+        line(s3x, band_y + SHEET_BAND_MM - 10, s3x + s3w, band_y + SHEET_BAND_MM - 10)
+        line(s3x, band_y + SHEET_BAND_MM - 5, s3x + s3w, band_y + SHEET_BAND_MM - 5)
+        for c, (lab, key) in enumerate((("BY", "by"), ("CHK", "chk"), ("ENG", "eng"), ("APPR", "appr"))):
+            cx = s3x + c * s3w / 4
+            if c:
+                line(cx, band_y + SHEET_BAND_MM - 10, cx, band_y + SHEET_BAND_MM)
+            center(cx, band_y + SHEET_BAND_MM - 5, s3w / 4, 5, lab, 2.0)
+            center(cx, band_y + SHEET_BAND_MM - 10, s3w / 4, 5, dash(key), 2.2)
+        # [4] designer / client / title + the SCALE·PROJECT·DRAWING·SHEET·REV cells
+        s4x, s4w = xs[4], widths[4]
+        row_y = band_y + SHEET_BAND_MM - 9
+        line(s4x, row_y, s4x + s4w, row_y)
+        des_w = 0.38 * s4w
+        line(s4x + des_w, band_y, s4x + des_w, row_y)
+        label(s4x, band_y, "DESIGNER:")
+        center(s4x, band_y + 4, des_w, 17, g("designer"), 2.6)
+        cli_y = band_y + 10
+        line(s4x + des_w, cli_y, s4x + s4w, cli_y)
+        label(s4x + des_w, band_y, "CLIENT:")
+        center(s4x + des_w, band_y + 2.5, s4w - des_w, 7.5, g("client"), 2.6)
+        label(s4x + des_w, cli_y, "TITLE:")
+        tb_x, tb_w = s4x + des_w, s4w - des_w
+        text(g("name"), tb_x + tb_w / 2, cli_y + 2 + 4.0, 3.4, "middle")
+        text(g("title2"), tb_x + tb_w / 2, cli_y + 2 + 8.0, 2.8, "middle")
+
+        # viewport scale: smallest standard 1:N that fits the draw area (real mm)
+        draw_x, draw_y = in_x + SHEET_PAD_MM, in_y + SHEET_PAD_MM
+        draw_w, draw_h = in_w - 2 * SHEET_PAD_MM, in_h - SHEET_BAND_MM - 2 * SHEET_PAD_MM
+        plate_w = float(self.model["plate"]["width_mm"])
+        n_horiz = sum(1 for d in self.model.get("ducts", []) if float(d.get("rot_deg", 0)) % 180 == 0)
+        content_w = plate_w + (90.0 if n_horiz >= 2 else 0.0)  # rows.ts ROW_DIM_MARGIN_MM
+        content_h = self.plate_h
+        need = max(content_w / draw_w, content_h / draw_h)
+        n_std = next((n for n in STD_SCALES if n >= need), STD_SCALES[-1])
+        scale_txt = f"1:{n_std:g}"
+
+        cell_f = [0.14, 0.22, 0.34, 0.18, 0.12]
+        cell_labels = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."]
+        cell_values = [scale_txt, g("project_no"), g("drawing_no"), g("sheet_no"), dash("rev")]
+        cx = s4x
+        for c in range(5):
+            w = cell_f[c] * s4w
+            if c:
+                line(cx, row_y, cx, row_y + 9)
+            label(cx, row_y, cell_labels[c], 1.8)
+            center(cx, row_y + 2.5, w, 6.5, cell_values[c], 2.8)
+            cx += w
+
+        # the viewport: paper size = real/N, showing the plate (+ row dims) centred
+        vp_w, vp_h = content_w / n_std, content_h / n_std
+        vp_cx = draw_x + draw_w / 2
+        vp_cy_top = draw_y + draw_h / 2
+        # model-space coords (already flipped/scaled by _to_dxf conventions)
+        view_cx = content_w * self.scale / 2
+        view_cy = self.plate_h * self.scale / 2
+        layout.add_viewport(
+            center=(vp_cx, fy(vp_cy_top)),
+            size=(vp_w, vp_h),
+            view_center_point=(view_cx, view_cy),
+            view_height=content_h * self.scale,
+        )
+
     def build(self) -> ezdxf.document.Drawing:
         p = self.model["plate"]
         self._rect(0, 0, float(p["width_mm"]), float(p["height_mm"]), "PLATE")
@@ -398,6 +570,7 @@ class DxfAssembler:
         for l in self.model.get("labels", []):
             self._place_label(l)
         self._row_dims()
+        self._paper_sheet()  # A3 layout tab: frame + title block + viewport
         return self.doc
 
 

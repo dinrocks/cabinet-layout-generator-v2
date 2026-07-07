@@ -988,6 +988,30 @@ export default function App() {
             <Num label="Height (mm)" value={model.plate.height_mm} onChange={(v) => v > 0 && set({ ...model, plate: { ...model.plate, height_mm: v } })} />
             <p className="muted small">Adjust the mounting-plate size, then press <strong>Fit</strong> to recenter the view. Select an item to edit it, or click/drag a library part to add one.</p>
 
+            <h3 className="mt">Title block</h3>
+            <p className="muted small">Prints on the PDF/PNG sheet and the DXF "A3 SHEET" layout. Blank fields stay blank.</p>
+            {(() => {
+              const setProj = (patch: Partial<LayoutModel["project"]>) =>
+                set({ ...model, project: { ...model.project, ...patch } });
+              return (
+                <>
+                  <Field label="Title line 2" value={model.project.title2 ?? ""} onChange={(v) => setProj({ title2: v })} />
+                  <Field label="Project no." value={model.project.project_no ?? ""} onChange={(v) => setProj({ project_no: v })} />
+                  <Field label="Drawing no." value={model.project.drawing_no ?? ""} onChange={(v) => setProj({ drawing_no: v })} />
+                  <Field label="Sheet" value={model.project.sheet_no ?? ""} onChange={(v) => setProj({ sheet_no: v })} />
+                  <Field label="Rev" value={model.project.rev} onChange={(v) => setProj({ rev: v })} />
+                  <Field label="Rev date" value={model.project.date ?? ""} onChange={(v) => setProj({ date: v })} />
+                  <Field label="Rev description" value={model.project.rev_desc ?? ""} onChange={(v) => setProj({ rev_desc: v })} />
+                  <Field label="By" value={model.project.by ?? ""} onChange={(v) => setProj({ by: v })} />
+                  <Field label="Chk" value={model.project.chk ?? ""} onChange={(v) => setProj({ chk: v })} />
+                  <Field label="Eng" value={model.project.eng ?? ""} onChange={(v) => setProj({ eng: v })} />
+                  <Field label="Appr" value={model.project.appr ?? ""} onChange={(v) => setProj({ appr: v })} />
+                  <Field label="Client" value={model.project.client ?? ""} onChange={(v) => setProj({ client: v })} />
+                  <Field label="Designer" value={model.project.designer ?? ""} onChange={(v) => setProj({ designer: v })} />
+                </>
+              );
+            })()}
+
             {rows.length > 0 && (
               <>
                 <h3 className="mt">Rows ({rows.length})</h3>

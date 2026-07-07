@@ -19,6 +19,24 @@ export interface ProjectMeta {
   name: string;
   panel_tag: string;
   rev: string;
+  /**
+   * Title-block fields (AMR sheet template — see model/sheet.ts). All optional
+   * and human-entered; blank prints blank/"-", never invented (CLAUDE.md §0).
+   * `title2` is the second TITLE line (e.g. "CABINET LAYOUT"); `sheet_no` is
+   * free text like "4 OF 26"; `by/chk/eng/appr` are the initials row.
+   */
+  title2?: string;
+  project_no?: string;
+  drawing_no?: string;
+  sheet_no?: string;
+  date?: string;
+  rev_desc?: string;
+  by?: string;
+  chk?: string;
+  eng?: string;
+  appr?: string;
+  client?: string;
+  designer?: string;
 }
 
 export interface Plate {

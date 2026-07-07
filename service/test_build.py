@@ -61,7 +61,10 @@ library = {
 SD = 60.0
 PLATE_W, PLATE_H = 800.0, 1500.0
 model = {
-    "project": {"name": "Service Test"},
+    "project": {"name": "Service Test", "title2": "CABINET LAYOUT", "rev": "A",
+                "project_no": "EE-NEX2025010", "drawing_no": "EE-NEX2025010-01",
+                "sheet_no": "1 OF 1", "date": "19-AUG-2025", "rev_desc": "ISSUED FOR APPROVAL",
+                "by": "PS", "chk": "SI"},
     "plate": {"width_mm": PLATE_W, "height_mm": PLATE_H, "origin": "top_left"},
     "ducts": [
         {"id": "WW_L", "x_mm": 0, "y_mm": 0, "length_mm": PLATE_H, "width_mm": SD, "label_h_mm": 60, "rot_deg": 90},
@@ -160,7 +163,23 @@ sw, sh = rot90[2].x - rot90[1].x, rot90[2].y - rot90[1].y
 assert abs(sw - part_h) < 0.5 and abs(sh - part_w) < 0.5, "rot90 must swap W x H"
 print(f"OK: rot90 footprint {sw:.1f}x{sh:.1f} == swapped {part_h:.1f}x{part_w:.1f}")
 
-# 7) also dump an SVG of the result for eyeballing
+# 7) the paper-space sheet: A3 layout tab with the AMR title band + a viewport
+sheet = doc.layouts.get("A3 SHEET")
+s_texts = [e.dxf.text for e in sheet if e.dxftype() == "TEXT"]
+vports = [e for e in sheet if e.dxftype() == "VIEWPORT"]
+for expected in ("DRAWING NO.", "EE-NEX2025010-01", "Service Test", "CABINET LAYOUT",
+                 "ISSUED FOR APPROVAL", "REFERENCE DRAWING NO."):
+    assert expected in s_texts, f"sheet text missing: {expected}"
+# one horizontal duct -> no row-dim margin (mirrors web contentWidth): content is
+# the bare 800x1500 plate; in the ~392x239 draw area that needs 1:6.28 -> std 1:10
+assert "1:10" in s_texts, f"expected scale 1:10 in {[t for t in s_texts if t.startswith('1:')]}"
+assert len(vports) >= 1, "sheet must carry a viewport onto the plate"
+vp = vports[-1]
+assert abs(vp.dxf.width - 800 / 10) < 0.1 and abs(vp.dxf.height - 1500 / 10) < 0.1, \
+    f"viewport {vp.dxf.width}x{vp.dxf.height} should be content/10"
+print("OK: A3 SHEET layout — title band populated, viewport at 1:10")
+
+# 8) also dump an SVG of the result for eyeballing
 backend = ezsvg.SVGBackend()
 Frontend(RenderContext(doc), backend).draw_layout(msp)
 page = dlayout.Page(0, 0, dlayout.Units.mm, margins=dlayout.Margins.all(0))

@@ -18,6 +18,19 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
   Actions secret (kept out of GitHub artifacts — the repo is public).
 
+### Added — drawing sheets: frame + AMR title block on every export
+- **Exports are now drawing sheets, not bare geometry.** PDF/PNG compose the real AMR sheet template
+  (reproduced from the engineer's shop drawings): border + **zone grid** (1–10 / A–F), and the full
+  bottom band — REFERENCE DRAWING NO./DESCRIPTION table, REMARK, REV/DATE/DESCRIPTION history,
+  BY/CHK/ENG/APPR initials, DESIGNER/CLIENT/TITLE, and the SCALE · PROJECT NO. · DRAWING NO. ·
+  SHEET · REV. cells. The **computed scale** (e.g. 1:10) prints in the SCALE cell.
+- **DXF gets a paper-space "A3 SHEET" layout tab** — frame + title block at true paper mm and a
+  **viewport** onto the plate at the nearest standard scale (1:1…1:100). Model space is untouched
+  (blocks stay countable); open the layout tab in GstarCAD for a plot-ready sheet.
+- **Title-block fields** (title line 2, project/drawing/sheet no., rev + date + description,
+  BY/CHK/ENG/APPR, client, designer) are edited in the Plate panel, save with the project, and print
+  blank when unset — never invented. Cell sizes are estimated from screenshots; tune in `model/sheet.ts`.
+
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
   huge/wrong file can't OOM the free-tier instance for everyone. (R4)

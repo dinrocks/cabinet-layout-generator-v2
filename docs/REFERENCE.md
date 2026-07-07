@@ -75,6 +75,7 @@ cabinet-layout-generator-v2/
 │  └─ src/
 │     ├─ model/                    PURE core, no DOM/Fabric — every risky rule lives here, tested:
 │     │   types · edit · geometry · rows · align · sets · insert · marquee · bom · validate ·
+│     │   sheet (AMR frame/title-block spec, mirrored in dxf_build.py) ·
 │     │   library (BANDS/byName) · resolve · factory · overlap · ductsnap · reflow (+ *.test.ts)
 │     ├─ render/toSvg.ts           THE renderer (preview = PDF/PNG/SVG); render/page.ts paper fit
 │     ├─ export/inBrowser.ts       PDF/PNG/SVG downloads (jsPDF/svg2pdf/canvas)
