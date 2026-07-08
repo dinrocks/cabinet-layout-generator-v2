@@ -49,16 +49,14 @@ function drawAreaDims(pageW: number, pageH: number): { w: number; h: number } {
   return { w: pageW - 2 * off, h: pageH - 2 * off - SHEET.band_mm };
 }
 
-/** Pick the orientation whose fit-to-sheet scale is larger (bigger drawing). */
+/** Sheets are ALWAYS landscape — the house drawing style (engineer, 2026-07-06).
+ *  A tall plate simply prints smaller rather than flipping the sheet. */
 function bestFit(paper: Paper, plateW: number, plateH: number): Fit {
   const base = PAPER_MM[paper];
-  const mk = (pageW: number, pageH: number, orientation: Fit["orientation"]): Fit => {
-    const a = drawAreaDims(pageW, pageH);
-    return { pageW, pageH, orientation, scale: Math.min(a.w / plateW, a.h / plateH) };
-  };
-  const portrait = mk(base.w, base.h, "portrait");
-  const landscape = mk(base.h, base.w, "landscape");
-  return portrait.scale >= landscape.scale ? portrait : landscape;
+  const pageW = base.h; // landscape: swap the portrait dims
+  const pageH = base.w;
+  const a = drawAreaDims(pageW, pageH);
+  return { pageW, pageH, orientation: "landscape", scale: Math.min(a.w / plateW, a.h / plateH) };
 }
 
 export function composePageSvg(model: LayoutModel, library: Library, paper: Paper): PageResult {

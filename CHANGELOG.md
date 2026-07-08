@@ -30,6 +30,8 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Title-block fields** (title line 2, project/drawing/sheet no., rev + date + description,
   BY/CHK/ENG/APPR, client, designer) are edited in the Plate panel, save with the project, and print
   blank when unset — never invented. Cell sizes are estimated from screenshots; tune in `model/sheet.ts`.
+- **Sheets are always landscape** (house style) — a tall plate prints smaller instead of flipping the
+  page to portrait.
 
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
