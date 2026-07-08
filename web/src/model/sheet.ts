@@ -16,7 +16,7 @@ export const SHEET = {
   outer_mm: 5,   // outer border offset from the paper edge
   zone_mm: 7,    // zone-tick band between outer and inner border
   band_mm: 30,   // title-band height (inside the inner border, at the bottom)
-  pad_mm: 2,     // breathing room between the drawing area and frame/band
+  pad_mm: 10,    // min gap between the drawing and the frame/band (engineer: ≥10mm)
 } as const;
 
 export interface SheetLine { x1: number; y1: number; x2: number; y2: number; w: number }
@@ -65,6 +65,8 @@ export function sheetSpec(pageW: number, pageH: number, p: ProjectMeta, scaleTex
   rect(outer, 0.7);
   rect(inner, 0.5);
 
+  // Zone references (engineer, 2026-07-08): numbers along the TOP only, letters down
+  // the LEFT only — one set each is enough; the other two edges keep just the ticks.
   const { cols, rows } = zoneCounts(inner.w, inner.h);
   const colW = inner.w / cols;
   for (let c = 0; c <= cols; c += 1) {
@@ -73,7 +75,6 @@ export function sheetSpec(pageW: number, pageH: number, p: ProjectMeta, scaleTex
     if (c < cols) {
       const cx = inner.x + (c + 0.5) * colW;
       T.push({ x: cx, y: (outer.y + inner.y) / 2 + 1.2, text: String(c + 1), h: 3.2, anchor: "middle" });
-      T.push({ x: cx, y: (inner.y + inner.h + outer.y + outer.h) / 2 + 1.2, text: String(c + 1), h: 3.2, anchor: "middle" });
     }
   }
   const rowH = inner.h / rows;
@@ -82,9 +83,7 @@ export function sheetSpec(pageW: number, pageH: number, p: ProjectMeta, scaleTex
     line(outer.x, y, inner.x, y); line(inner.x + inner.w, y, outer.x + outer.w, y); // ticks left+right
     if (r < rows) {
       const cy = inner.y + (r + 0.5) * rowH + 1.2;
-      const letter = String.fromCharCode(65 + r); // A, B, C…
-      T.push({ x: (outer.x + inner.x) / 2, y: cy, text: letter, h: 3.2, anchor: "middle" });
-      T.push({ x: (inner.x + inner.w + outer.x + outer.w) / 2, y: cy, text: letter, h: 3.2, anchor: "middle" });
+      T.push({ x: (outer.x + inner.x) / 2, y: cy, text: String.fromCharCode(65 + r), h: 3.2, anchor: "middle" });
     }
   }
 

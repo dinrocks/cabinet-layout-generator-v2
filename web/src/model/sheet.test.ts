@@ -43,10 +43,19 @@ describe("sheetSpec", () => {
     ]) expect(texts, expected).toContain(expected);
   });
 
-  it("zone letters/numbers appear on both edges (1..10, A..F twice each)", () => {
+  it("zone numbers label the top only, letters the left only (once each)", () => {
     const texts = spec().texts;
-    expect(texts.filter((t) => t.text === "7")).toHaveLength(2);   // top + bottom
-    expect(texts.filter((t) => t.text === "F")).toHaveLength(2);   // left + right
+    expect(texts.filter((t) => t.text === "7")).toHaveLength(1);   // top only, not bottom
+    expect(texts.filter((t) => t.text === "F")).toHaveLength(1);   // left only, not right
+  });
+
+  it("keeps at least a 10mm gap between the drawing and the frame/band", () => {
+    const s = spec();
+    const bandTop = s.inner.y + s.inner.h - SHEET.band_mm;
+    expect(s.drawArea.x - s.inner.x).toBeGreaterThanOrEqual(10);                          // left
+    expect(s.drawArea.y - s.inner.y).toBeGreaterThanOrEqual(10);                          // top
+    expect(s.inner.x + s.inner.w - (s.drawArea.x + s.drawArea.w)).toBeGreaterThanOrEqual(10); // right
+    expect(bandTop - (s.drawArea.y + s.drawArea.h)).toBeGreaterThanOrEqual(10);           // above band
   });
 
   it("blank optional fields stay blank; empty initials print a dash", () => {

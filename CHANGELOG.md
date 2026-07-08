@@ -32,6 +32,8 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   blank when unset — never invented. Cell sizes are estimated from screenshots; tune in `model/sheet.ts`.
 - **Sheets are always landscape** (house style) — a tall plate prints smaller instead of flipping the
   page to portrait.
+- **Zone references** are drawn **once** — numbers along the top, letters down the left (the other two
+  edges keep just the ticks) — and the drawing keeps a **≥10 mm gap** from the frame/band on all sides.
 
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a

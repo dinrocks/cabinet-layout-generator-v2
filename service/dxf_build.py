@@ -45,7 +45,7 @@ TEXT_STYLE = "ARIAL"
 SHEET_OUTER_MM = 5.0
 SHEET_ZONE_MM = 7.0
 SHEET_BAND_MM = 30.0
-SHEET_PAD_MM = 2.0
+SHEET_PAD_MM = 10.0  # min gap between the drawing and the frame/band (engineer: ≥10mm)
 # standard plot scales 1:N — the smallest N that fits the draw area is chosen
 STD_SCALES = [1, 2, 2.5, 5, 10, 15, 20, 25, 50, 100]
 
@@ -434,7 +434,8 @@ class DxfAssembler:
         g = lambda k: str(p.get(k) or "")          # blank when unset (never invented)
         dash = lambda k: str(p.get(k) or "-")
 
-        # frame + zone grid (cols 1..N top+bottom, rows A.. left+right)
+        # frame + zone grid: numbers along the TOP only, letters down the LEFT only
+        # (engineer, 2026-07-08); the other two edges keep just the ticks.
         o = SHEET_OUTER_MM
         i = o + SHEET_ZONE_MM
         in_x, in_y = i, i
@@ -448,17 +449,13 @@ class DxfAssembler:
             x = in_x + c * col_w
             line(x, o, x, in_y); line(x, in_y + in_h, x, paper_h - o)
             if c < cols:
-                cx = in_x + (c + 0.5) * col_w
-                text(str(c + 1), cx, (o + in_y) / 2 + 1.2, 3.2, "middle")
-                text(str(c + 1), cx, (in_y + in_h + paper_h - o) / 2 + 1.2, 3.2, "middle")
+                text(str(c + 1), in_x + (c + 0.5) * col_w, (o + in_y) / 2 + 1.2, 3.2, "middle")
         row_h = in_h / rows
         for r in range(rows + 1):
             y = in_y + r * row_h
             line(o, y, in_x, y); line(in_x + in_w, y, paper_w - o, y)
             if r < rows:
-                cy = in_y + (r + 0.5) * row_h + 1.2
-                text(chr(65 + r), (o + in_x) / 2, cy, 3.2, "middle")
-                text(chr(65 + r), (in_x + in_w + paper_w - o) / 2, cy, 3.2, "middle")
+                text(chr(65 + r), (o + in_x) / 2, in_y + (r + 0.5) * row_h + 1.2, 3.2, "middle")
 
         # bottom title band — sections: ref-drawings | remark | rev history | initials | title block
         band_y = in_y + in_h - SHEET_BAND_MM
