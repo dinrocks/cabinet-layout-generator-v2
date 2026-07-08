@@ -87,15 +87,12 @@ export function bomSheetPages(bom: Bom, pageW: number, pageH: number, p: Project
     const n = Math.max(...cells.map((l) => l.length));
     return { cells, h: n * LINE_H + 2.4 };
   });
-  const totalRow: WrappedRow = {
-    cells: [[""], ["Total parts"], [""], [""], [String(bom.totalParts)]],
-    h: LINE_H + 2.4,
-  };
 
-  // paginate: header repeats on each page; the total row rides the last page
+  // paginate: the header repeats on each page (no Total-parts row — the engineer's
+  // sheet doesn't carry one; it's still shown in the on-screen BOM dialog + CSV).
   const pagesRows: WrappedRow[][] = [[]];
   let y = tableTop + HEAD_H;
-  for (const row of [...rows, totalRow]) {
+  for (const row of rows) {
     if (y + row.h > bottom && pagesRows[pagesRows.length - 1].length > 0) {
       pagesRows.push([]);
       y = tableTop + HEAD_H;

@@ -39,10 +39,12 @@ describe("bomSheetPages", () => {
     expect(pgs).toHaveLength(1);
     const texts = pgs[0].texts.map((t) => t.text);
     for (const s of ["BILL OF MATERIALS", "ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY",
-      "PS01", "PSU 24VDC", "MEAN WELL", "NDR-120-24", "B101-B104", "Total parts", "5"])
+      "PS01", "PSU 24VDC", "MEAN WELL", "NDR-120-24", "B101-B104"])
       expect(texts, s).toContain(s);
     // sheet frame is present too (title block labels come from sheetSpec)
     expect(texts).toContain("DRAWING NO.");
+    // no Total-parts row on the drawing sheet (it lives in the dialog + CSV)
+    expect(texts).not.toContain("Total parts");
   });
 
   it("unentered fields print '-', estimates carry the * marker", () => {
@@ -118,8 +120,8 @@ describe("bomSheetPages", () => {
     const pgs = pages([]);
     expect(pgs).toHaveLength(1);
     const texts = pgs[0].texts.map((t) => t.text);
-    expect(texts).toContain("BILL OF MATERIALS");
-    expect(texts).toContain("0"); // total parts
+    expect(texts).toContain("BILL OF MATERIALS"); // heading + frame, no data rows
+    expect(texts).toContain("DRAWING NO.");
   });
 
   it("all geometry stays on the page", () => {

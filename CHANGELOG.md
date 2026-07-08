@@ -45,7 +45,8 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   runs collapse to ranges (B101-B112). Pure tested core in `model/bomsheet.ts`.
 - **Matched to the engineer's real BOM sheet** (2026-07-08): the table is a centred block ~0.65 of the
   draw-area width (not full-width), with DESCRIPTION dominant and MANUFACTURER/MODEL/QTY slim
-  (`0.13 / 0.57 / 0.12 / 0.12 / 0.06`); heading reads "BILL OF MATERIALS".
+  (`0.13 / 0.57 / 0.12 / 0.12 / 0.06`); heading reads "BILL OF MATERIALS". No **Total-parts** row on the
+  drawing sheet (the real sheet doesn't carry one — the total is still in the on-screen dialog + CSV).
 
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
