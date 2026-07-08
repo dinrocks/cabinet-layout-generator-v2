@@ -21,7 +21,7 @@ describe("wrapCell", () => {
     expect(wrapCell("PSU 24VDC", 60)).toEqual(["PSU 24VDC"]);
     const lines = wrapCell("RTU CABINET STEEL SHEET POWDER COATED OUTDOOR TYPE IP54 RAL7035", 40);
     expect(lines.length).toBeGreaterThan(1);
-    for (const l of lines) expect(l.length).toBeLessThanOrEqual(Math.floor((40 - 3) / (0.62 * 2.6)));
+    for (const l of lines) expect(l.length).toBeLessThanOrEqual(Math.floor((40 - 3) / (0.68 * 2.6)));
   });
 
   it("hard-breaks a single overlong word (long tag runs)", () => {

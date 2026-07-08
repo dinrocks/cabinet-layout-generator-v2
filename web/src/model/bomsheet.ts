@@ -4,8 +4,8 @@
  * coords — the printable companion to the CSV export, matching the shop-drawing
  * BOM page: ITEM NO. · DESCRIPTION · MANUFACTURER · MODEL · QTY.
  *
- * Deterministic text wrapping (same 0.62·font char-width estimate the renderers
- * use) grows a row's height; rows paginate when the draw area fills and the
+ * Deterministic text wrapping (a per-glyph char-width estimate, CHAR_W) grows a
+ * row's height; rows paginate when the draw area fills and the
  * column header repeats on every page. Nothing is invented: cells print exactly
  * what buildBom() surfaced — "-" for unentered fields, "*" for unconfirmed
  * size estimates (CLAUDE.md §0).
@@ -37,9 +37,14 @@ const HEADING = "BILL OF MATERIALS";
 
 const dash = (s: string) => (s && s.trim() ? s : "-");
 
-/** Greedy word-wrap into lines that fit `maxW` mm at `font` mm (0.62·h char width). */
+// Char-width estimate (× font mm) for wrapping. 0.68 (not the 0.62 used for part
+// tags) because BOM descriptions are essentially all-caps Arial, whose glyphs run
+// wider — keeps a long line inside its column in true-Arial DXF/PDF, not just preview.
+const CHAR_W = 0.68;
+
+/** Greedy word-wrap into lines that fit `maxW` mm at `font` mm (CHAR_W·h per glyph). */
 export function wrapCell(s: string, maxW: number, font = FONT): string[] {
-  const maxChars = Math.max(4, Math.floor((maxW - 3) / (0.62 * font)));
+  const maxChars = Math.max(4, Math.floor((maxW - 3) / (CHAR_W * font)));
   const words = s.split(/\s+/).filter(Boolean);
   if (words.length === 0) return [s];
   const lines: string[] = [];

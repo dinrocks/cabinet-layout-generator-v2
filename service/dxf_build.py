@@ -49,6 +49,53 @@ SHEET_PAD_MM = 10.0  # min gap between the drawing and the frame/band (engineer:
 # standard plot scales 1:N — the smallest N that fits the draw area is chosen
 STD_SCALES = [1, 2, 2.5, 5, 10, 15, 20, 25, 50, 100]
 
+# ── BOM drawing sheet (paper mm) — MUST match web/src/model/bomsheet.ts ──
+# The BOM aggregation lives in the tested TS core (buildBom); the frontend sends the
+# already-collapsed rows in the export payload. Here we only lay them out on the AMR
+# sheet, mirroring bomsheet.ts arithmetic exactly.
+BOM_TABLE_W_FRAC = 0.65                        # centred table, ~0.65 of the draw area
+BOM_COL_F = [0.13, 0.57, 0.12, 0.12, 0.06]     # ITEM · DESCRIPTION · MFR · MODEL · QTY
+BOM_COL_HEAD = ["ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY"]
+BOM_COL_CENTER = [True, False, False, False, True]
+BOM_FONT = 2.6
+BOM_LINE_H = 4.0
+BOM_HEAD_H = 8.0
+BOM_HEADING = "BILL OF MATERIALS"
+# char-width estimate (× font mm) for wrapping — 0.68 (wider than the 0.62 used for
+# part tags) because the all-caps descriptions run wider in true Arial.
+BOM_CHAR_W = 0.68
+
+
+def _bom_dash(s: object) -> str:
+    """'-' for an empty/blank cell (never invent); otherwise the value."""
+    return str(s) if (s is not None and str(s).strip()) else "-"
+
+
+def _wrap_cell(s: str, max_w: float, font: float = BOM_FONT) -> list[str]:
+    """Greedy word-wrap to lines that fit `max_w` mm at `font` mm (BOM_CHAR_W·h per
+    glyph) — mirrors wrapCell() in web/src/model/bomsheet.ts."""
+    max_chars = max(4, int((max_w - 3) / (BOM_CHAR_W * font)))
+    words = s.split()
+    if not words:
+        return [s]
+    lines: list[str] = []
+    cur = ""
+    for w in words:
+        cand = f"{cur} {w}" if cur else w
+        if len(cand) <= max_chars:
+            cur = cand
+            continue
+        if cur:
+            lines.append(cur)
+        rest = w  # hard-break a single overlong word (long tag runs)
+        while len(rest) > max_chars:
+            lines.append(rest[:max_chars])
+            rest = rest[max_chars:]
+        cur = rest
+    if cur:
+        lines.append(cur)
+    return lines
+
 # Part-tag text heights (mm) — small + horizontal, matching the shop drawings. Fixed
 # per category; the Terminal-blocks category is smaller so a 2-digit number fits
 # centered over a ~5mm terminal. MUST match web/src/render/toSvg.ts.
@@ -119,10 +166,14 @@ def insert_point_for(part_w: float, part_h: float, rot_deg: float,
 # --------------------------- the assembler ---------------------------
 
 class DxfAssembler:
-    def __init__(self, model: dict[str, Any], library: dict[str, Any], scale: float = 1.0):
+    def __init__(self, model: dict[str, Any], library: dict[str, Any], scale: float = 1.0,
+                 bom: list[dict[str, Any]] | None = None):
         self.model = model
         self.library = library
         self.scale = scale
+        # BOM rows are computed by the TS core (buildBom) and sent in the payload —
+        # never re-aggregated here (single source of truth). None → no BOM tab.
+        self.bom = bom or []
         self.plate_h = float(model["plate"]["height_mm"])
         self.doc = ezdxf.new("R2018", setup=True)
         self.doc.units = ezdxf.units.MM
@@ -395,15 +446,22 @@ class DxfAssembler:
         y = float(host["y_mm"]) + float(l.get("dy_mm", 0))
         self._text(l["text"], x, y, 10, rot_deg=float(l.get("rot_deg", 0)))
 
-    # ----- paper-space sheet (frame + zone grid + AMR title band + viewport) -----
+    # ----- paper-space sheets (frame + zone grid + AMR title band + content) -----
 
-    def _paper_sheet(self, paper_w: float = 420.0, paper_h: float = 297.0) -> None:
-        """An A3-landscape layout tab: the AMR sheet template drawn at true paper mm
-        with a viewport onto the plate at a standard scale. Mirrors the arithmetic
-        of web/src/model/sheet.ts (top-left coords there; paper space is bottom-left,
-        so y flips through `fy`). Model space is untouched."""
-        layout = self.doc.layouts.new("A3 SHEET")
-        layout.page_setup(size=(int(paper_w), int(paper_h)), margins=(0, 0, 0, 0), units="mm")
+    @staticmethod
+    def _draw_area(paper_w: float, paper_h: float) -> tuple[float, float, float, float]:
+        """Usable draw area (x, y, w, h) in top-left mm, inside the frame and above
+        the title band, with the ≥10mm pad. Matches page.ts drawAreaDims + sheet.ts."""
+        i = SHEET_OUTER_MM + SHEET_ZONE_MM
+        in_w, in_h = paper_w - 2 * i, paper_h - 2 * i
+        return (i + SHEET_PAD_MM, i + SHEET_PAD_MM,
+                in_w - 2 * SHEET_PAD_MM, in_h - SHEET_BAND_MM - 2 * SHEET_PAD_MM)
+
+    def _sheet_chrome(self, layout: Any, paper_w: float, paper_h: float, scale_txt: str):
+        """Draw the AMR frame + zone grid + bottom title band on `layout` at true
+        paper mm (bottom-left, so top-left y flips through `fy`). Shared by the
+        layout sheet and the BOM sheet(s) — mirrors web/src/model/sheet.ts. Returns
+        (fy, line, text, center) so the caller can add a viewport or the BOM table."""
         sh = {"layer": "SHEET"}
 
         def fy(y_top: float) -> float:
@@ -518,17 +576,6 @@ class DxfAssembler:
         text(g("name"), tb_x + tb_w / 2, cli_y + 2 + 4.0, 3.4, "middle")
         text(g("title2"), tb_x + tb_w / 2, cli_y + 2 + 8.0, 2.8, "middle")
 
-        # viewport scale: smallest standard 1:N that fits the draw area (real mm)
-        draw_x, draw_y = in_x + SHEET_PAD_MM, in_y + SHEET_PAD_MM
-        draw_w, draw_h = in_w - 2 * SHEET_PAD_MM, in_h - SHEET_BAND_MM - 2 * SHEET_PAD_MM
-        plate_w = float(self.model["plate"]["width_mm"])
-        n_horiz = sum(1 for d in self.model.get("ducts", []) if float(d.get("rot_deg", 0)) % 180 == 0)
-        content_w = plate_w + (90.0 if n_horiz >= 2 else 0.0)  # rows.ts ROW_DIM_MARGIN_MM
-        content_h = self.plate_h
-        need = max(content_w / draw_w, content_h / draw_h)
-        n_std = next((n for n in STD_SCALES if n >= need), STD_SCALES[-1])
-        scale_txt = f"1:{n_std:g}"
-
         cell_f = [0.14, 0.22, 0.34, 0.18, 0.12]
         cell_labels = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."]
         cell_values = [scale_txt, g("project_no"), g("drawing_no"), g("sheet_no"), dash("rev")]
@@ -540,6 +587,25 @@ class DxfAssembler:
             label(cx, row_y, cell_labels[c], 1.8)
             center(cx, row_y + 2.5, w, 6.5, cell_values[c], 2.8)
             cx += w
+
+        return fy, line, text, center
+
+    def _paper_sheet(self, paper_w: float = 420.0, paper_h: float = 297.0) -> None:
+        """An A3-landscape layout tab: the AMR sheet template with a viewport onto
+        the plate at the nearest standard scale. Model space is untouched."""
+        layout = self.doc.layouts.new("A3 SHEET")
+        layout.page_setup(size=(int(paper_w), int(paper_h)), margins=(0, 0, 0, 0), units="mm")
+        draw_x, draw_y, draw_w, draw_h = self._draw_area(paper_w, paper_h)
+
+        # viewport scale: smallest standard 1:N that fits the draw area (real mm)
+        plate_w = float(self.model["plate"]["width_mm"])
+        n_horiz = sum(1 for d in self.model.get("ducts", []) if float(d.get("rot_deg", 0)) % 180 == 0)
+        content_w = plate_w + (90.0 if n_horiz >= 2 else 0.0)  # rows.ts ROW_DIM_MARGIN_MM
+        content_h = self.plate_h
+        need = max(content_w / draw_w, content_h / draw_h)
+        n_std = next((n for n in STD_SCALES if n >= need), STD_SCALES[-1])
+
+        fy, _line, _text, _center = self._sheet_chrome(layout, paper_w, paper_h, f"1:{n_std:g}")
 
         # the viewport: paper size = real/N, showing the plate (+ row dims) centred
         vp_w, vp_h = content_w / n_std, content_h / n_std
@@ -555,6 +621,85 @@ class DxfAssembler:
             view_height=content_h * self.scale,
         )
 
+    def _bom_sheets(self, paper_w: float = 420.0, paper_h: float = 297.0) -> None:
+        """One or more BOM layout tabs ("BOM", or "BOM 1".."BOM N" when paginated):
+        the AMR sheet template with the Bill-of-Materials table laid out in the draw
+        area. Mirrors web/src/model/bomsheet.ts. No BOM rows → no tab."""
+        rows_in = self.bom
+        if not rows_in:
+            return
+        draw_x, draw_y, draw_w, draw_h = self._draw_area(paper_w, paper_h)
+        table_w = BOM_TABLE_W_FRAC * draw_w
+        table_x = draw_x + (draw_w - table_w) / 2
+        col_w = [f * table_w for f in BOM_COL_F]
+        col_x = [table_x]
+        for w in col_w:
+            col_x.append(col_x[-1] + w)
+        table_top = draw_y + 10          # heading sits above the table
+        bottom = draw_y + draw_h
+
+        # wrap every row up front so pagination sees real heights
+        wrapped: list[tuple[list[list[str]], float]] = []
+        for r in rows_in:
+            cells_raw = [
+                _bom_dash(r.get("item_no")),
+                _bom_dash(r.get("description")) + (" *" if r.get("confirm") else ""),
+                _bom_dash(r.get("manufacturer")),
+                _bom_dash(r.get("model")),
+                str(r.get("qty", 0)),
+            ]
+            cells = [_wrap_cell(s, col_w[c]) for c, s in enumerate(cells_raw)]
+            n = max(len(c) for c in cells)
+            wrapped.append((cells, n * BOM_LINE_H + 2.4))
+
+        # paginate: header repeats per page (no Total-parts row — matches bomsheet.ts)
+        pages: list[list[tuple[list[list[str]], float]]] = [[]]
+        y = table_top + BOM_HEAD_H
+        for cells, h in wrapped:
+            if y + h > bottom and pages[-1]:
+                pages.append([])
+                y = table_top + BOM_HEAD_H
+            pages[-1].append((cells, h))
+            y += h
+        n_pages = len(pages)
+
+        for pi, page_rows in enumerate(pages):
+            name = "BOM" if n_pages == 1 else f"BOM {pi + 1}"
+            layout = self.doc.layouts.new(name)
+            layout.page_setup(size=(int(paper_w), int(paper_h)), margins=(0, 0, 0, 0), units="mm")
+            _fy, line, text, center = self._sheet_chrome(layout, paper_w, paper_h, "-")
+
+            heading = BOM_HEADING if n_pages == 1 else f"{BOM_HEADING} — PAGE {pi + 1} OF {n_pages}"
+            text(heading, draw_x + draw_w / 2, draw_y + 6, 4.5, "middle")
+
+            # header row
+            ry = table_top
+            for c, head in enumerate(BOM_COL_HEAD):
+                center(col_x[c], ry, col_w[c], BOM_HEAD_H, head, 2.8)
+            ry += BOM_HEAD_H
+            line(col_x[0], table_top + BOM_HEAD_H, col_x[5], table_top + BOM_HEAD_H)
+
+            # data rows
+            for cells, h in page_rows:
+                for c in range(5):
+                    lines_c = cells[c]
+                    block_h = (len(lines_c) - 1) * BOM_LINE_H
+                    base = ry + h / 2 - block_h / 2 + BOM_FONT * 0.35
+                    for s in lines_c:
+                        if s:
+                            if BOM_COL_CENTER[c]:
+                                text(s, col_x[c] + col_w[c] / 2, base, BOM_FONT, "middle")
+                            else:
+                                text(s, col_x[c] + 1.5, base, BOM_FONT, "start")
+                        base += BOM_LINE_H
+                ry += h
+                line(col_x[0], ry, col_x[5], ry)
+
+            # table outline + column separators (span header → last row on this page)
+            line(col_x[0], table_top, col_x[5], table_top)
+            for c in range(6):
+                line(col_x[c], table_top, col_x[c], ry)
+
     def build(self) -> ezdxf.document.Drawing:
         p = self.model["plate"]
         self._rect(0, 0, float(p["width_mm"]), float(p["height_mm"]), "PLATE")
@@ -568,8 +713,10 @@ class DxfAssembler:
             self._place_label(l)
         self._row_dims()
         self._paper_sheet()  # A3 layout tab: frame + title block + viewport
+        self._bom_sheets()   # BOM layout tab(s): frame + title block + BOM table
         return self.doc
 
 
-def assemble(model: dict[str, Any], library: dict[str, Any], scale: float = 1.0):
-    return DxfAssembler(model, library, scale).build()
+def assemble(model: dict[str, Any], library: dict[str, Any], scale: float = 1.0,
+             bom: list[dict[str, Any]] | None = None):
+    return DxfAssembler(model, library, scale, bom).build()

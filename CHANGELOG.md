@@ -48,6 +48,18 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   (`0.13 / 0.57 / 0.12 / 0.12 / 0.06`); heading reads "BILL OF MATERIALS". No **Total-parts** row on the
   drawing sheet (the real sheet doesn't carry one — the total is still in the on-screen dialog + CSV).
 
+### Added — BOM in the DXF too (complete CAD drawing set)
+- **The exported DXF now carries the BOM as its own paper-space layout tab** ("BOM", or "BOM 1…N" when
+  it paginates) — the same AMR frame + title block as the "A3 SHEET" layout, with the BOM table laid
+  out in the draw area. Open either tab in GstarCAD and plot: the single .dxf is now the whole set
+  (layout sheet + BOM sheet), not just the geometry.
+- The BOM **count stays the single tested TS core** (`buildBom`): the frontend sends the already
+  aggregated + ITEM NO.-collapsed rows in the export payload; the service only lays them out (never
+  re-counts). The table layout mirrors `model/bomsheet.ts` in `dxf_build.py`, sharing the frame/title
+  block with the layout sheet via one `_sheet_chrome` helper.
+- Widened the description word-wrap estimate (`CHAR_W` 0.62 → 0.68) so long all-caps lines stay inside
+  their column in **true-Arial** DXF (and PDF), applied identically in both renderers.
+
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
   huge/wrong file can't OOM the free-tier instance for everyone. (R4)

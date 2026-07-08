@@ -8,6 +8,7 @@
  */
 import type { LayoutModel, Library } from "../model/types";
 import { accessToken } from "../lib/supabaseClient";
+import { buildBom, itemNo } from "../model/bom";
 
 /** Bearer header when signed in; empty when offline/local (service is open then). */
 async function authHeader(): Promise<Record<string, string>> {
@@ -88,10 +89,21 @@ export async function exportDxf(
       return [k, rest];
     }),
   );
+  // The BOM aggregation is the tested TS core (single source of truth); the service
+  // only lays these rows out on its BOM layout tab (never re-counts). itemNo() gives
+  // the same collapsed ITEM NO. string the on-screen table + CSV use.
+  const bom = buildBom(model, library).rows.map((r) => ({
+    item_no: itemNo(r),
+    description: r.description,
+    manufacturer: r.manufacturer,
+    model: r.model,
+    qty: r.qty,
+    confirm: r.confirm,
+  }));
   const res = await serviceFetch(`/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeader()) },
-    body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale] }),
+    body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale], bom }),
   });
   if (!res.ok) {
     throw new Error(`Export failed (${res.status}). ${await errorDetail(res)}`.trim());

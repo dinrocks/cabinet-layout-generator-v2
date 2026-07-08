@@ -85,6 +85,9 @@ class ExportRequest(BaseModel):
     model: dict[str, Any]
     library: dict[str, Any]
     scale: float = 1.0  # 1.0 = 1:1, 0.01 = 1:100
+    # BOM rows (already aggregated + collapsed by the TS core, buildBom) for the DXF
+    # BOM layout tab; optional so older clients still export the layout-only DXF.
+    bom: list[dict[str, Any]] | None = None
 
 
 def _safe_filename(name: str) -> str:
@@ -98,7 +101,7 @@ def export(req: ExportRequest, _user: str | None = Depends(require_user)) -> Res
     if req.scale not in (1.0, 0.01):
         raise HTTPException(400, "scale must be 1.0 (1:1) or 0.01 (1:100).")
     try:
-        doc = dxf_build.assemble(req.model, req.library, req.scale)
+        doc = dxf_build.assemble(req.model, req.library, req.scale, req.bom)
         buf = io.StringIO()
         doc.write(buf)
         data = buf.getvalue().encode("utf-8")

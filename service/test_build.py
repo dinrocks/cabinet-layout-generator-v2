@@ -97,8 +97,20 @@ model = {
     ],
 }
 
+# a BOM (as the TS core would send it: already aggregated + ITEM NO. collapsed) so
+# the DXF gets its BOM layout tab; one row wraps long to exercise the row-growth path
+bom_rows = [
+    {"item_no": "PLC01, PLC02", "description": "IDEC FC6A CPU MODULE 24VDC",
+     "manufacturer": "IDEC", "model": "FC6A-D16R1CEE", "qty": 2, "confirm": False},
+    {"item_no": "B101-B112", "description": "DIN RAIL TERMINAL BLOCK 1 POLE, SPRING PUSH-IN TYPE, "
+     "PITCH 5.2 MM, 600V/20A, WIRE RANGE 26-12 AWG", "manufacturer": "DEGSON",
+     "model": "DS2.5-01P-11-00Z(H)", "qty": 12, "confirm": True},
+    {"item_no": "-", "description": "Label for stopper", "manufacturer": "", "model": "", "qty": 1,
+     "confirm": False},
+]
+
 # 4) assemble at 1:1, save, audit
-doc = dxf_build.assemble(model, library, scale=1.0)
+doc = dxf_build.assemble(model, library, scale=1.0, bom=bom_rows)
 doc.saveas("out_service.dxf")
 auditor = doc.audit()
 print("AUDIT errors:", len(auditor.errors))
@@ -178,6 +190,21 @@ vp = vports[-1]
 assert abs(vp.dxf.width - 800 / 10) < 0.1 and abs(vp.dxf.height - 1500 / 10) < 0.1, \
     f"viewport {vp.dxf.width}x{vp.dxf.height} should be content/10"
 print("OK: A3 SHEET layout — title band populated, viewport at 1:10")
+
+# 7b) the BOM layout tab: same frame/title band + the BOM table (no viewport)
+bom_sheet = doc.layouts.get("BOM")
+b_texts = [e.dxf.text for e in bom_sheet if e.dxftype() == "TEXT"]
+for expected in ("BILL OF MATERIALS", "ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY",
+                 "PLC01, PLC02", "FC6A-D16R1CEE", "B101-B112", "DRAWING NO."):
+    assert expected in b_texts, f"BOM sheet text missing: {expected}"
+# every paper layout has the default "main" viewport (id 1); the BOM tab must add no
+# CONTENT viewport (id > 1) — unlike the layout sheet, which puts the plate in one
+content_vps = [e for e in bom_sheet if e.dxftype() == "VIEWPORT" and e.dxf.id != 1]
+assert not content_vps, "BOM sheet carries no content viewport"
+assert "Total parts" not in b_texts, "no Total-parts row on the BOM drawing sheet"
+# the estimate marker rides the wrapped description (confirm=True row)
+assert any("*" in t for t in b_texts), "unconfirmed estimate keeps its * marker"
+print("OK: BOM layout tab — framed sheet, table populated, ITEM NO. ranges intact")
 
 # 8) also dump an SVG of the result for eyeballing
 backend = ezsvg.SVGBackend()
