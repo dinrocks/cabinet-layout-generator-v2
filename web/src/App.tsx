@@ -1056,7 +1056,7 @@ export default function App() {
       )}
 
       {showBom && (
-        <BomModal model={model} library={library}
+        <BomModal model={model} library={library} paper={paper}
           extras={model.bom_extras ?? []}
           onChangeExtras={(ex) => set({ ...model, bom_extras: ex })}
           onClose={() => setShowBom(false)} />

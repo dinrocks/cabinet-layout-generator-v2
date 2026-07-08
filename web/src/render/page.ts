@@ -11,7 +11,9 @@
  */
 import type { LayoutModel, Library } from "../model/types";
 import { renderPlateBody, contentWidth } from "./toSvg";
-import { sheetSpec, SHEET } from "../model/sheet";
+import { sheetSpec, SHEET, type SheetLine, type SheetText } from "../model/sheet";
+import { bomSheetPages } from "../model/bomsheet";
+import { buildBom } from "../model/bom";
 
 export type Paper = "A4" | "A3";
 
@@ -75,20 +77,47 @@ export function composePageSvg(model: LayoutModel, library: Library, paper: Pape
   const offsetY = sheet.drawArea.y + (sheet.drawArea.h - drawnH) / 2;
 
   const body = renderPlateBody(model, library);
-  const frame = [
-    ...sheet.lines.map((l) =>
-      `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="#111" stroke-width="${l.w}"/>`),
-    ...sheet.texts.map((t) =>
-      `<text x="${t.x}" y="${t.y}" font-size="${t.h}" fill="#111" text-anchor="${t.anchor}">${esc(t.text)}</text>`),
-  ].join("");
-
   const svg = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${fit.pageW}" height="${fit.pageH}" viewBox="0 0 ${fit.pageW} ${fit.pageH}" font-family="Arial, Helvetica, sans-serif">`,
-    `<rect x="0" y="0" width="${fit.pageW}" height="${fit.pageH}" fill="#ffffff"/>`,
-    frame,
+    svgOpen(fit.pageW, fit.pageH),
+    frameSvg(sheet.lines, sheet.texts),
     `<g transform="translate(${offsetX} ${offsetY}) scale(${fit.scale})">${body}</g>`,
     `</svg>`,
   ].join("");
 
   return { svg, pageW: fit.pageW, pageH: fit.pageH, orientation: fit.orientation, scaleN, titleLine };
+}
+
+/** Serialize sheet lines + texts (paper mm, top-left coords) to SVG elements. */
+function frameSvg(lines: SheetLine[], texts: SheetText[]): string {
+  return [
+    ...lines.map((l) =>
+      `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="#111" stroke-width="${l.w}"/>`),
+    ...texts.map((t) =>
+      `<text x="${t.x}" y="${t.y}" font-size="${t.h}" fill="#111" text-anchor="${t.anchor}">${esc(t.text)}</text>`),
+  ].join("");
+}
+
+function svgOpen(pageW: number, pageH: number): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Arial, Helvetica, sans-serif">` +
+    `<rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#ffffff"/>`
+  );
+}
+
+export interface BomPagesResult {
+  /** One full-page SVG string per BOM sheet (all landscape). */
+  svgs: string[];
+  pageW: number;
+  pageH: number;
+}
+
+/** The BOM as printable drawing sheets (AMR frame + title block), one SVG per page. */
+export function composeBomPagesSvg(model: LayoutModel, library: Library, paper: Paper): BomPagesResult {
+  const base = PAPER_MM[paper];
+  const pageW = base.h; // landscape, house style
+  const pageH = base.w;
+  const bom = buildBom(model, library);
+  const pages = bomSheetPages(bom, pageW, pageH, model.project);
+  const svgs = pages.map((pg) => [svgOpen(pageW, pageH), frameSvg(pg.lines, pg.texts), `</svg>`].join(""));
+  return { svgs, pageW, pageH };
 }

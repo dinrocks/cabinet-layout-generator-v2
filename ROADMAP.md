@@ -25,7 +25,8 @@ in the panel and the ✎ Edit-part dialog; **manual BOM-only rows** (`model.bom_
 the plate (cabinet, name plates, lamp, fans, outlets), edited in the BOM modal; CSV download; saved with
 the project.
 - Shipped polish: ITEM NO. collapses consecutive tag runs to ranges ("B101–B112").
-- Optional later polish: printable/PDF BOM.
+- ✅ Printable/PDF BOM — DONE (2026-07-08): multi-page drawing sheets (AMR frame + title block) from
+  the BOM dialog; word-wrap, pagination with repeating header, page numbering (`model/bomsheet.ts`).
 
 ## Now / In progress
 

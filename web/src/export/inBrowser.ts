@@ -10,7 +10,7 @@ import { jsPDF } from "jspdf";
 import { svg2pdf } from "svg2pdf.js";
 import type { LayoutModel, Library } from "../model/types";
 import { renderToSvg } from "../render/toSvg";
-import { composePageSvg, type Paper } from "../render/page";
+import { composePageSvg, composeBomPagesSvg, type Paper } from "../render/page";
 
 const MM_PER_INCH = 25.4;
 /** Guard against runaway canvases (≈ A3@300dpi). */
@@ -87,6 +87,22 @@ export async function downloadPng(
   downloadBlob(blob, `${safeName(model)}.png`);
 }
 
+/** svg2pdf needs the element in the DOM to measure text/layout; render off-screen. */
+async function svgIntoPdf(pdf: jsPDF, svg: string, wMm: number, hMm: number): Promise<void> {
+  const holder = document.createElement("div");
+  holder.style.position = "fixed";
+  holder.style.left = "-10000px";
+  holder.style.top = "0";
+  holder.innerHTML = svg;
+  const el = holder.firstElementChild as SVGSVGElement;
+  document.body.appendChild(holder);
+  try {
+    await svg2pdf(el, pdf, { x: 0, y: 0, width: wMm, height: hMm });
+  } finally {
+    holder.remove();
+  }
+}
+
 /** Paper-fitted vector PDF (svg2pdf into a mm-unit jsPDF). */
 export async function downloadPdf(model: LayoutModel, library: Library, paper: Paper): Promise<void> {
   const page = composePageSvg(model, library, paper);
@@ -95,19 +111,17 @@ export async function downloadPdf(model: LayoutModel, library: Library, paper: P
     unit: "mm",
     format: paper.toLowerCase(),
   });
-
-  // svg2pdf needs the element in the DOM to measure text/layout; render off-screen.
-  const holder = document.createElement("div");
-  holder.style.position = "fixed";
-  holder.style.left = "-10000px";
-  holder.style.top = "0";
-  holder.innerHTML = page.svg;
-  const el = holder.firstElementChild as SVGSVGElement;
-  document.body.appendChild(holder);
-  try {
-    await svg2pdf(el, pdf, { x: 0, y: 0, width: page.pageW, height: page.pageH });
-  } finally {
-    holder.remove();
-  }
+  await svgIntoPdf(pdf, page.svg, page.pageW, page.pageH);
   pdf.save(`${safeName(model)}.pdf`);
+}
+
+/** The BOM as a multi-page vector PDF of drawing sheets (frame + title block). */
+export async function downloadBomPdf(model: LayoutModel, library: Library, paper: Paper): Promise<void> {
+  const { svgs, pageW, pageH } = composeBomPagesSvg(model, library, paper);
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: paper.toLowerCase() });
+  for (const [i, svg] of svgs.entries()) {
+    if (i > 0) pdf.addPage(paper.toLowerCase(), "landscape");
+    await svgIntoPdf(pdf, svg, pageW, pageH);
+  }
+  pdf.save(`${safeName(model)}_BOM.pdf`);
 }

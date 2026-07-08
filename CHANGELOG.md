@@ -35,6 +35,15 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Zone references** are drawn **once** — numbers along the top, letters down the left (the other two
   edges keep just the ticks) — and the drawing keeps a **≥10 mm gap** from the frame/band on all sides.
 
+### Added — BOM as a printable drawing sheet (PDF)
+- The BOM dialog now downloads a **multi-page vector PDF of real drawing sheets**: the AMR frame +
+  title block with the BOM table (ITEM NO. · DESCRIPTION · MANUFACTURER · MODEL · QTY) laid out in the
+  draw area. Long cells word-wrap and grow their row; rows **paginate** when the page fills, the column
+  header repeats on every page, and multi-page runs are numbered ("PAGE 2 OF 3"). Uses the app's paper
+  choice (A4/A3, landscape); the SCALE cell prints "-" (a BOM sheet has no scale). CSV export stays.
+- Same data rules as the table: "-" for unentered fields, "*" marks unconfirmed size estimates, tag
+  runs collapse to ranges (B101-B112). Pure tested core in `model/bomsheet.ts`.
+
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
   huge/wrong file can't OOM the free-tier instance for everyone. (R4)

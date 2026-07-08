@@ -5,9 +5,11 @@
  * belong on the sheet; those are editable and merge into the table + CSV. All BOM
  * data is human-entered — nothing invented (CLAUDE.md §0/§5).
  */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LayoutModel, Library, BomExtra } from "../model/types";
 import { buildBom, bomToCsv, itemNo } from "../model/bom";
+import { downloadBomPdf } from "../export/inBrowser";
+import type { Paper } from "../render/page";
 
 const dash = (s: string) => (s && s.trim() ? s : "-");
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -16,12 +18,14 @@ interface Props {
   model: LayoutModel;
   library: Library;
   extras: BomExtra[];
+  paper: Paper;
   onChangeExtras: (extras: BomExtra[]) => void;
   onClose: () => void;
 }
 
-export default function BomModal({ model, library, extras, onChangeExtras, onClose }: Props) {
+export default function BomModal({ model, library, extras, paper, onChangeExtras, onClose }: Props) {
   const bom = useMemo(() => buildBom(model, library), [model, library]);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -45,6 +49,17 @@ export default function BomModal({ model, library, extras, onChangeExtras, onClo
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadPdf = async () => {
+    setBusy(true);
+    try {
+      await downloadBomPdf(model, library, paper);
+    } catch (e) {
+      alert(`BOM PDF failed: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -115,7 +130,10 @@ export default function BomModal({ model, library, extras, onChangeExtras, onClo
 
         <div className="modal-actions">
           <button type="button" className="ghost" onClick={onClose}>Close</button>
-          <button type="button" disabled={bom.rows.length === 0} onClick={downloadCsv}>Download CSV</button>
+          <button type="button" className="ghost" disabled={bom.rows.length === 0} onClick={downloadCsv}>Download CSV</button>
+          <button type="button" disabled={bom.rows.length === 0 || busy} onClick={() => void downloadPdf()}>
+            {busy ? "Making PDF…" : `PDF sheet (${paper})`}
+          </button>
         </div>
       </div>
     </div>
