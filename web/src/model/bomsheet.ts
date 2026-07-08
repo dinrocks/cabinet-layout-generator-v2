@@ -21,8 +21,11 @@ export interface BomPage {
   texts: SheetText[];
 }
 
-// column fractions of the table width + headers (shop-drawing BOM order)
-const COL_F = [0.14, 0.46, 0.14, 0.18, 0.08] as const;
+// The table is a centred block narrower than the draw area (engineer's real BOM
+// sheet, 2026-07-08): ~0.65 of the width, DESCRIPTION dominant, MFR/MODEL/QTY slim.
+const TABLE_W_FRAC = 0.65;
+// column fractions of the TABLE width + headers (shop-drawing BOM order)
+const COL_F = [0.13, 0.57, 0.12, 0.12, 0.06] as const;
 const COL_HEAD = ["ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY"] as const;
 /** Which columns center their text (ITEM NO. + QTY); the rest are left-aligned. */
 const COL_CENTER = [true, false, false, false, true] as const;
@@ -30,7 +33,7 @@ const COL_CENTER = [true, false, false, false, true] as const;
 const FONT = 2.6; // row text height (mm)
 const LINE_H = 4.0; // wrapped-line pitch (mm)
 const HEAD_H = 8.0; // header row height (mm)
-const HEADING = "BILL OF MATERIAL";
+const HEADING = "BILL OF MATERIALS";
 
 const dash = (s: string) => (s && s.trim() ? s : "-");
 
@@ -63,8 +66,11 @@ export function bomSheetPages(bom: Bom, pageW: number, pageH: number, p: Project
   // the table grid is identical on every page — measure it once
   const probe = sheetSpec(pageW, pageH, p, "-");
   const area = probe.drawArea;
-  const colW = COL_F.map((f) => f * area.w);
-  const colX: number[] = [area.x];
+  // a centred block narrower than the draw area (matches the shop sheet)
+  const tableW = TABLE_W_FRAC * area.w;
+  const tableX = area.x + (area.w - tableW) / 2;
+  const colW = COL_F.map((f) => f * tableW);
+  const colX: number[] = [tableX];
   for (const w of colW) colX.push(colX[colX.length - 1] + w);
   const tableTop = area.y + 10; // heading sits above the table
   const bottom = area.y + area.h;

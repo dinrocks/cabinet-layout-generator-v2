@@ -38,7 +38,7 @@ describe("bomSheetPages", () => {
     ]);
     expect(pgs).toHaveLength(1);
     const texts = pgs[0].texts.map((t) => t.text);
-    for (const s of ["BILL OF MATERIAL", "ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY",
+    for (const s of ["BILL OF MATERIALS", "ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY",
       "PS01", "PSU 24VDC", "MEAN WELL", "NDR-120-24", "B101-B104", "Total parts", "5"])
       expect(texts, s).toContain(s);
     // sheet frame is present too (title block labels come from sheetSpec)
@@ -60,7 +60,7 @@ describe("bomSheetPages", () => {
     for (const [i, pg] of pgs.entries()) {
       const texts = pg.texts.map((t) => t.text);
       expect(texts).toContain("ITEM NO."); // header on every page
-      expect(texts).toContain(`BILL OF MATERIAL — PAGE ${i + 1} OF ${pgs.length}`);
+      expect(texts).toContain(`BILL OF MATERIALS — PAGE ${i + 1} OF ${pgs.length}`);
     }
     // every device row landed exactly once across the pages
     const all = pgs.flatMap((pg) => pg.texts.map((t) => t.text));
@@ -93,6 +93,21 @@ describe("bomSheetPages", () => {
       expect(fan.y).toBeGreaterThan(l.y); // next row starts below every wrapped line
   });
 
+  it("the table is a centred block, clearly narrower than the draw area", () => {
+    const base = sheetSpec(420, 297, P, "-");
+    const area = base.drawArea;
+    const frame = new Set(base.lines.map((l) => `${l.x1},${l.y1},${l.x2},${l.y2}`));
+    const pg = pages([row({ tags: ["A1"] }), row({ tags: ["A2"] })])[0];
+    const xs = pg.lines
+      .filter((l) => !frame.has(`${l.x1},${l.y1},${l.x2},${l.y2}`)) // table lines only
+      .flatMap((l) => [l.x1, l.x2]);
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    expect(right - left).toBeLessThan(area.w * 0.8);                 // narrower than full width
+    expect(right - left).toBeGreaterThan(area.w * 0.5);             // but not tiny
+    expect(Math.abs((left - area.x) - (area.x + area.w - right))).toBeLessThan(0.5); // centred
+  });
+
   it("the SCALE cell prints '-' (a BOM sheet has no scale)", () => {
     const texts = pages([row({})])[0].texts;
     expect(texts.some((t) => t.text === "SCALE")).toBe(true);
@@ -103,7 +118,7 @@ describe("bomSheetPages", () => {
     const pgs = pages([]);
     expect(pgs).toHaveLength(1);
     const texts = pgs[0].texts.map((t) => t.text);
-    expect(texts).toContain("BILL OF MATERIAL");
+    expect(texts).toContain("BILL OF MATERIALS");
     expect(texts).toContain("0"); // total parts
   });
 

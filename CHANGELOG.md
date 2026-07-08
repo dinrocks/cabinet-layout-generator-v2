@@ -43,6 +43,9 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   choice (A4/A3, landscape); the SCALE cell prints "-" (a BOM sheet has no scale). CSV export stays.
 - Same data rules as the table: "-" for unentered fields, "*" marks unconfirmed size estimates, tag
   runs collapse to ranges (B101-B112). Pure tested core in `model/bomsheet.ts`.
+- **Matched to the engineer's real BOM sheet** (2026-07-08): the table is a centred block ~0.65 of the
+  draw-area width (not full-width), with DESCRIPTION dominant and MANUFACTURER/MODEL/QTY slim
+  (`0.13 / 0.57 / 0.12 / 0.12 / 0.06`); heading reads "BILL OF MATERIALS".
 
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
