@@ -57,9 +57,10 @@ BOM_TABLE_W_FRAC = 0.65                        # centred table, ~0.65 of the dra
 BOM_COL_F = [0.13, 0.57, 0.12, 0.12, 0.06]     # ITEM · DESCRIPTION · MFR · MODEL · QTY
 BOM_COL_HEAD = ["ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY"]
 BOM_COL_CENTER = [True, False, False, False, True]
-BOM_FONT = 2.6
-BOM_LINE_H = 4.0
-BOM_HEAD_H = 8.0
+BOM_FONT = 2.0                                 # small, matching the engineer's real sheet
+BOM_LINE_H = 3.3
+BOM_HEAD_H = 7.0
+BOM_HEAD_FONT = 2.4
 BOM_HEADING = "BILL OF MATERIALS"
 # char-width estimate (× font mm) for wrapping — 0.68 (wider than the 0.62 used for
 # part tags) because the all-caps descriptions run wider in true Arial.
@@ -669,13 +670,13 @@ class DxfAssembler:
             layout.page_setup(size=(int(paper_w), int(paper_h)), margins=(0, 0, 0, 0), units="mm")
             _fy, line, text, center = self._sheet_chrome(layout, paper_w, paper_h, "-")
 
-            heading = BOM_HEADING if n_pages == 1 else f"{BOM_HEADING} — PAGE {pi + 1} OF {n_pages}"
-            text(heading, draw_x + draw_w / 2, draw_y + 6, 4.5, "middle")
+            # heading — just the title (no page counter, even across "BOM 1".."BOM N")
+            text(BOM_HEADING, draw_x + draw_w / 2, draw_y + 6, 4.5, "middle")
 
             # header row
             ry = table_top
             for c, head in enumerate(BOM_COL_HEAD):
-                center(col_x[c], ry, col_w[c], BOM_HEAD_H, head, 2.8)
+                center(col_x[c], ry, col_w[c], BOM_HEAD_H, head, BOM_HEAD_FONT)
             ry += BOM_HEAD_H
             line(col_x[0], table_top + BOM_HEAD_H, col_x[5], table_top + BOM_HEAD_H)
 

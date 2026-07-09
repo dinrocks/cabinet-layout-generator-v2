@@ -59,6 +59,11 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   block with the layout sheet via one `_sheet_chrome` helper.
 - Widened the description word-wrap estimate (`CHAR_W` 0.62 → 0.68) so long all-caps lines stay inside
   their column in **true-Arial** DXF (and PDF), applied identically in both renderers.
+- **Smaller BOM row font** (2.6 → 2.0 mm; line pitch + header sized to match) so the table reads like
+  the engineer's real sheet — dense, with long descriptions comfortably inside the DESCRIPTION column
+  (verified against real arial.ttf metrics: the longest line ≈ 104 mm in a 138 mm column).
+- **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
+  (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a

@@ -21,7 +21,7 @@ describe("wrapCell", () => {
     expect(wrapCell("PSU 24VDC", 60)).toEqual(["PSU 24VDC"]);
     const lines = wrapCell("RTU CABINET STEEL SHEET POWDER COATED OUTDOOR TYPE IP54 RAL7035", 40);
     expect(lines.length).toBeGreaterThan(1);
-    for (const l of lines) expect(l.length).toBeLessThanOrEqual(Math.floor((40 - 3) / (0.68 * 2.6)));
+    for (const l of lines) expect(l.length).toBeLessThanOrEqual(Math.floor((40 - 3) / (0.68 * 2.0)));
   });
 
   it("hard-breaks a single overlong word (long tag runs)", () => {
@@ -54,15 +54,16 @@ describe("bomSheetPages", () => {
     expect(texts.filter((t) => t === "-").length).toBeGreaterThanOrEqual(3); // item no + mfr + model
   });
 
-  it("many rows paginate; the header repeats and pages are numbered", () => {
+  it("many rows paginate; the header + plain title repeat on every page", () => {
     const many = Array.from({ length: 80 }, (_, i) =>
       row({ key: `k${i}`, tags: [`D${100 + i}`], description: `DEVICE NUMBER ${i} WITH A LONGISH SPEC LINE` }));
     const pgs = pages(many);
     expect(pgs.length).toBeGreaterThan(1);
-    for (const [i, pg] of pgs.entries()) {
+    for (const pg of pgs) {
       const texts = pg.texts.map((t) => t.text);
       expect(texts).toContain("ITEM NO."); // header on every page
-      expect(texts).toContain(`BILL OF MATERIALS — PAGE ${i + 1} OF ${pgs.length}`);
+      expect(texts).toContain("BILL OF MATERIALS"); // plain title, no page counter
+      expect(texts.some((t) => t.includes("PAGE"))).toBe(false);
     }
     // every device row landed exactly once across the pages
     const all = pgs.flatMap((pg) => pg.texts.map((t) => t.text));
@@ -83,15 +84,19 @@ describe("bomSheetPages", () => {
   });
 
   it("a wrapped description grows its row instead of overlapping the next", () => {
-    const long = "RTU CABINET STEEL SHEET POWDER COATED OUTDOOR TYPE IP54 RAL7035 WITH RAIN HOOD AND BASE";
+    const long = "RTU CABINET STEEL SHEET POWDER COATED OUTDOOR TYPE IP54 RAL7035 WITH RAIN HOOD " +
+      "AND BASE PLINTH AND INNER MOUNTING PLATE AND DOUBLE DOOR WITH THREE-POINT LOCKING HANDLE";
     const pgs = pages([
       row({ key: "a", description: long }),
       row({ key: "b", tags: ["FAN01"], description: "AXIAL FAN 120MM" }),
     ]);
     const texts = pgs[0].texts;
-    const longLines = texts.filter((t) => long.startsWith(t.text.split(" ")[0]) && t.h === 2.6 && t.anchor === "start" && t.text !== "AXIAL FAN 120MM");
+    // the long row's wrapped lines: left-aligned body text that is a slice of `long`
+    // (exclude the "-" dash cells — `long` contains a hyphen, so it "includes" them)
+    const longLines = texts.filter((t) => t.h === 2.0 && t.anchor === "start" && t.text !== "-" && long.includes(t.text));
+    expect(longLines.length).toBeGreaterThan(1); // it really did wrap
     const fan = texts.find((t) => t.text === "AXIAL FAN 120MM")!;
-    for (const l of longLines.filter((t) => long.includes(t.text)))
+    for (const l of longLines)
       expect(fan.y).toBeGreaterThan(l.y); // next row starts below every wrapped line
   });
 

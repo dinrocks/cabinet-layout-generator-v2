@@ -30,9 +30,10 @@ const COL_HEAD = ["ITEM NO.", "DESCRIPTION", "MANUFACTURER", "MODEL", "QTY"] as 
 /** Which columns center their text (ITEM NO. + QTY); the rest are left-aligned. */
 const COL_CENTER = [true, false, false, false, true] as const;
 
-const FONT = 2.6; // row text height (mm)
-const LINE_H = 4.0; // wrapped-line pitch (mm)
-const HEAD_H = 8.0; // header row height (mm)
+const FONT = 2.0; // row text height (mm) — small, matching the engineer's real sheet
+const LINE_H = 3.3; // wrapped-line pitch (mm)
+const HEAD_H = 7.0; // header row height (mm)
+const HEAD_FONT = 2.4; // column-header text height (mm)
 const HEADING = "BILL OF MATERIALS";
 
 const dash = (s: string) => (s && s.trim() ? s : "-");
@@ -105,25 +106,22 @@ export function bomSheetPages(bom: Bom, pageW: number, pageH: number, p: Project
     pagesRows[pagesRows.length - 1].push(row);
     y += row.h;
   }
-  const nPages = pagesRows.length;
-
-  return pagesRows.map((pageRows, pi) => {
+  return pagesRows.map((pageRows) => {
     const sheet = sheetSpec(pageW, pageH, p, "-"); // BOM sheet carries no scale
     const L: SheetLine[] = [...sheet.lines];
     const T: SheetText[] = [...sheet.texts];
     const line = (x1: number, y1: number, x2: number, y2: number, w = 0.25) =>
       L.push({ x1, y1, x2, y2, w });
 
-    // heading (page counter only when the BOM spans pages)
-    const heading = nPages > 1 ? `${HEADING} — PAGE ${pi + 1} OF ${nPages}` : HEADING;
-    T.push({ x: area.x + area.w / 2, y: area.y + 6, text: heading, h: 4.5, anchor: "middle" });
+    // heading — just the title (no page counter, even when the BOM spans pages)
+    T.push({ x: area.x + area.w / 2, y: area.y + 6, text: HEADING, h: 4.5, anchor: "middle" });
 
     // header row
     let ry = tableTop;
     for (let c = 0; c < COL_HEAD.length; c += 1) {
       T.push({
-        x: colX[c] + colW[c] / 2, y: ry + HEAD_H / 2 + 2.8 * 0.35,
-        text: COL_HEAD[c], h: 2.8, anchor: "middle",
+        x: colX[c] + colW[c] / 2, y: ry + HEAD_H / 2 + HEAD_FONT * 0.35,
+        text: COL_HEAD[c], h: HEAD_FONT, anchor: "middle",
       });
     }
     ry += HEAD_H;
