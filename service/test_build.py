@@ -204,7 +204,14 @@ assert not content_vps, "BOM sheet carries no content viewport"
 assert "Total parts" not in b_texts, "no Total-parts row on the BOM drawing sheet"
 # the estimate marker rides the wrapped description (confirm=True row)
 assert any("*" in t for t in b_texts), "unconfirmed estimate keeps its * marker"
-print("OK: BOM layout tab — framed sheet, table populated, ITEM NO. ranges intact")
+# paper-space heights are EM specs × cap factor (DXF height = CAP height in CAD),
+# so the CAD sheet matches the PDF sheet and long lines stay inside their column:
+# 2.0mm BOM rows must land as 2.0 × 0.716 TEXT height
+b_heights = {round(e.dxf.height, 3) for e in bom_sheet if e.dxftype() == "TEXT"}
+want = round(2.0 * dxf_build.ARIAL_CAP_PER_EM, 3)
+assert want in b_heights, f"BOM row text height should be {want} (cap-converted), got {sorted(b_heights)}"
+assert 2.0 not in b_heights, "raw EM height must not reach the DXF (cap conversion skipped?)"
+print("OK: BOM layout tab — framed sheet, table populated, ITEM NO. ranges intact, cap-height converted")
 
 # 8) also dump an SVG of the result for eyeballing
 backend = ezsvg.SVGBackend()

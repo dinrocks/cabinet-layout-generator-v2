@@ -65,6 +65,17 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Fixed — GstarCAD text overlap on the DXF sheets (cap-height vs em-size)
+- **Root cause:** DXF TEXT height means **capital-letter height** in AutoCAD/GstarCAD (TrueType rule),
+  while the browser's `font-size` means **em size** — Arial caps are only ~0.72 em. The same "2.0mm"
+  therefore rendered ~1.4× larger *and wider* in CAD, pushing long BOM descriptions through the
+  MANUFACTURER border (and into plots made from CAD), even though the PDF was clean.
+- **Fix:** paper-space sheet text (title block + zone labels + BOM table) converts its em-spec heights
+  by `ARIAL_CAP_PER_EM` (0.716) in one place (`dxf_build._sheet_chrome`), so the DXF layout tabs now
+  render **identically to the PDF sheets** and the wrap budget holds in CAD. Model-space text (part
+  tags, duct labels, row dims) is untouched — those were calibrated in CAD terms from real drawings.
+- Harness asserts the conversion (2.0mm rows land as 1.432mm TEXT height; raw em heights are rejected).
+
 ### Hardening (RISK_REVIEW R4–R6)
 - **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
   huge/wrong file can't OOM the free-tier instance for everyone. (R4)

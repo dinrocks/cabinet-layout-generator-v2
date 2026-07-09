@@ -47,6 +47,10 @@ disagree, the code wins — fix this file in the same commit. Companion docs: [W
 Layers `PLATE / DUCT / EQUIP / TEXT / GROUND`; text style `ARIAL` (arial.ttf); blocks `EQ_<lib_key>`.
 
 ### Typography (drawing text, mm — shared constants, keep the three renderers in sync)
+**Height semantics differ by medium:** DXF TEXT height = **CAP height** (AutoCAD/GstarCAD TrueType
+rule); SVG/PDF `font-size` = **EM size** (Arial caps ≈ 0.72 em). Paper-space sheet text is specced in
+EM terms and converted in ONE place (`ARIAL_CAP_PER_EM` in `dxf_build._sheet_chrome`) so the DXF sheet
+matches the PDF sheet. Model-space heights (below) are CAD-calibrated — no conversion.
 Arial everywhere. Part tags **3.5 mm** (`TAG_FONT_MM`), Terminal-blocks band **2.5 mm**
 (`TAG_FONT_TERMINAL_MM`), gap above part **2.5 mm** (`TAG_GAP_MM`) — defined in `toSvg.ts`,
 mirrored in `dxf_build.py`. Duct label = 0.6 × duct thickness. Row-dim text 16 mm. Stopper

@@ -66,6 +66,15 @@ BOM_HEADING = "BILL OF MATERIALS"
 # part tags) because the all-caps descriptions run wider in true Arial.
 BOM_CHAR_W = 0.68
 
+# DXF TEXT height means CAP height in AutoCAD/GstarCAD for TrueType fonts, while the
+# web renderer's SVG font-size means EM size (Arial caps ≈ 0.72 em). The sheet specs
+# (sheet.ts / bomsheet.ts) are calibrated in EM terms against the real template, so
+# paper-space text heights convert HERE, in one place — without this the same nominal
+# height renders ~1.4x larger/wider in CAD and long BOM lines overflow their column
+# (the GstarCAD overlap bug, 2026-07-09). Model space is untouched: its tag/label
+# heights were calibrated directly against the engineer's CAD shop drawings.
+ARIAL_CAP_PER_EM = 0.716
+
 
 def _bom_dash(s: object) -> str:
     """'-' for an empty/blank cell (never invent); otherwise the value."""
@@ -480,7 +489,11 @@ class DxfAssembler:
                 return
             align = (ezdxf.enums.TextEntityAlignment.BOTTOM_CENTER if anchor == "middle"
                      else ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT)
-            t = layout.add_text(s, dxfattribs={"layer": "SHEET", "height": h, "style": TEXT_STYLE})
+            # h is an EM-size spec (matching the SVG/PDF renderer); DXF height = cap
+            # height, so convert — see ARIAL_CAP_PER_EM.
+            t = layout.add_text(s, dxfattribs={"layer": "SHEET",
+                                               "height": h * ARIAL_CAP_PER_EM,
+                                               "style": TEXT_STYLE})
             t.set_placement((x, fy(y_base)), align=align)
 
         def label(x: float, y: float, s: str, h: float = 2.0) -> None:
