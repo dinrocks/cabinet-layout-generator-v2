@@ -90,13 +90,15 @@ cabinet-layout-generator-v2/
 │     ├─ render/toSvg.ts           THE renderer (preview = PDF/PNG/SVG); render/page.ts paper fit
 │     ├─ export/inBrowser.ts       PDF/PNG/SVG downloads (jsPDF/svg2pdf/canvas)
 │     ├─ editor/                   FabricStage (canvas view-binding) · useHistory (undo/redo) ·
-│     │                            zoom · modals: Upload / EditPart / Insert / Bom / Revisions
+│     │                            zoom · Toolbar · LibrarySidebar · PropertiesPanel · OpenDialog ·
+│     │                            modals: Upload / EditPart / Insert / Bom / Revisions
 │     ├─ store/                    projectStore (cloud projects+folders+revisions, stale-save CAS) ·
+│     │                            useCloudProjects (open/save/dup/folders/history hook) ·
 │     │                            libraryStore (shared parts) · draft (crash copy) · localFile (JSON)
 │     ├─ auth/                     SignInGate · AuthProvider/Context · auth.css
-│     ├─ lib/supabaseClient.ts     client + accessToken()
+│     ├─ lib/supabaseClient.ts     client + accessToken() · timeAgo
 │     ├─ service/dxfClient.ts      the ONLY code that talks to the ezdxf service
-│     └─ App.tsx + App.css         the shell (~900 lines — split queued as ROADMAP #8)
+│     └─ App.tsx + App.css         the shell (~500 lines: state + wiring; views extracted)
 └─ service/                        FastAPI + ezdxf 1.4.4, deployed on Render
    ├─ app.py                       /health {storage,auth} · /upload (20MB cap) · /export (JWT)
    ├─ dxf_build.py                 deterministic assembler — the ONE top-left↔bottom-left flip

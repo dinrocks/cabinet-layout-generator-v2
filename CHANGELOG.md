@@ -65,6 +65,13 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Changed — App.tsx split into focused modules (hardening #8, part 1)
+- Pure refactor, no behaviour change: the 1190-line shell is now ~500 lines of state + wiring, with
+  the views extracted to `editor/Toolbar`, `editor/LibrarySidebar`, `editor/PropertiesPanel`,
+  `editor/OpenDialog`, and the cloud project handlers (open/save/duplicate/folders/history +
+  stale-save guard) grouped into a `store/useCloudProjects` hook. Verified by a browser smoke test
+  (add/delete part, duct, zoom, panel switching — no console errors) plus all checks.
+
 ### Fixed — Thai titles in the PDF exports (embedded Sarabun font)
 - **A Thai project name/title garbled in the exported PDF** — jsPDF's built-in fonts are Latin-only
   (Arial itself carries no Thai glyphs). The engineer's real titles ARE Thai, so this would have
