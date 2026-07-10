@@ -1,3 +1,5 @@
+/// <reference types="node" />
+// (node builtins are used only here — the app tsconfig stays vite/client-only)
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

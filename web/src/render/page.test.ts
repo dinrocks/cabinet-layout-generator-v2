@@ -1,12 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { composePageSvg, composeBomPagesSvg } from "./page";
-import type { LayoutModel } from "../model/types";
+import { newModel } from "../model/factory";
 
-const model: LayoutModel = {
-  project: { id: "p", name: "แบบแปลนตู้ RTU - type 2", panel_tag: "", rev: "A" },
-  plate: { width_mm: 800, height_mm: 600, origin: "top_left" },
-  ducts: [], elements: [], groups: [], labels: [],
-};
+const model = newModel("แบบแปลนตู้ RTU - type 2");
 
 describe("page SVG font", () => {
   it("lists Sarabun first so PDF text (incl. Thai titles) uses the embedded font", () => {
