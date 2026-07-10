@@ -51,6 +51,9 @@ Layers `PLATE / DUCT / EQUIP / TEXT / GROUND`; text style `ARIAL` (arial.ttf); b
 rule); SVG/PDF `font-size` = **EM size** (Arial caps ≈ 0.72 em). Paper-space sheet text is specced in
 EM terms and converted in ONE place (`ARIAL_CAP_PER_EM` in `dxf_build._sheet_chrome`) so the DXF sheet
 matches the PDF sheet. Model-space heights (below) are CAD-calibrated — no conversion.
+**Thai text:** PDFs embed **Sarabun** (OFL, `web/src/assets/`, registered in `export/pdfFont.ts`;
+sheet font-family lists it first) because jsPDF built-ins and Arial have no Thai glyphs. PNG/preview
+use OS font fallback; DXF stores UTF-8 and CAD substitutes fonts at render time.
 Arial everywhere. Part tags **3.5 mm** (`TAG_FONT_MM`), Terminal-blocks band **2.5 mm**
 (`TAG_FONT_TERMINAL_MM`), gap above part **2.5 mm** (`TAG_GAP_MM`) — defined in `toSvg.ts`,
 mirrored in `dxf_build.py`. Duct label = 0.6 × duct thickness. Row-dim text 16 mm. Stopper

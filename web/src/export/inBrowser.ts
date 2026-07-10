@@ -11,6 +11,7 @@ import { svg2pdf } from "svg2pdf.js";
 import type { LayoutModel, Library } from "../model/types";
 import { renderToSvg } from "../render/toSvg";
 import { composePageSvg, composeBomPagesSvg, type Paper } from "../render/page";
+import { ensureThaiFont } from "./pdfFont";
 
 const MM_PER_INCH = 25.4;
 /** Guard against runaway canvases (≈ A3@300dpi). */
@@ -111,6 +112,7 @@ export async function downloadPdf(model: LayoutModel, library: Library, paper: P
     unit: "mm",
     format: paper.toLowerCase(),
   });
+  await ensureThaiFont(pdf); // Thai titles must not garble (export/pdfFont.ts)
   await svgIntoPdf(pdf, page.svg, page.pageW, page.pageH);
   pdf.save(`${safeName(model)}.pdf`);
 }
@@ -119,6 +121,7 @@ export async function downloadPdf(model: LayoutModel, library: Library, paper: P
 export async function downloadBomPdf(model: LayoutModel, library: Library, paper: Paper): Promise<void> {
   const { svgs, pageW, pageH } = composeBomPagesSvg(model, library, paper);
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: paper.toLowerCase() });
+  await ensureThaiFont(pdf);
   for (const [i, svg] of svgs.entries()) {
     if (i > 0) pdf.addPage(paper.toLowerCase(), "landscape");
     await svgIntoPdf(pdf, svg, pageW, pageH);

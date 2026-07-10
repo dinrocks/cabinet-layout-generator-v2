@@ -98,8 +98,11 @@ function frameSvg(lines: SheetLine[], texts: SheetText[]): string {
 }
 
 function svgOpen(pageW: number, pageH: number): string {
+  // Sarabun first: it's the font registered with jsPDF (Thai + Latin — a Thai title
+  // must not garble in the PDF, see export/pdfFont.ts). Browsers without it fall
+  // back to Arial for Latin and the OS Thai fonts for Thai.
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Arial, Helvetica, sans-serif">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Sarabun, Arial, Helvetica, sans-serif">` +
     `<rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#ffffff"/>`
   );
 }

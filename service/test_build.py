@@ -61,7 +61,9 @@ library = {
 SD = 60.0
 PLATE_W, PLATE_H = 800.0, 1500.0
 model = {
-    "project": {"name": "Service Test", "title2": "CABINET LAYOUT", "rev": "A",
+    # Thai in the title on purpose: the engineer's real titles are Thai — it must
+    # survive the DXF write/read round-trip intact (rendering is CAD's job)
+    "project": {"name": "ตู้ RTU Service Test", "title2": "CABINET LAYOUT", "rev": "A",
                 "project_no": "EE-NEX2025010", "drawing_no": "EE-NEX2025010-01",
                 "sheet_no": "1 OF 1", "date": "19-AUG-2025", "rev_desc": "ISSUED FOR APPROVAL",
                 "by": "PS", "chk": "SI"},
@@ -179,9 +181,15 @@ print(f"OK: rot90 footprint {sw:.1f}x{sh:.1f} == swapped {part_h:.1f}x{part_w:.1
 sheet = doc.layouts.get("A3 SHEET")
 s_texts = [e.dxf.text for e in sheet if e.dxftype() == "TEXT"]
 vports = [e for e in sheet if e.dxftype() == "VIEWPORT"]
-for expected in ("DRAWING NO.", "EE-NEX2025010-01", "Service Test", "CABINET LAYOUT",
+for expected in ("DRAWING NO.", "EE-NEX2025010-01", "ตู้ RTU Service Test", "CABINET LAYOUT",
                  "ISSUED FOR APPROVAL", "REFERENCE DRAWING NO."):
-    assert expected in s_texts, f"sheet text missing: {expected}"
+    assert expected in s_texts, f"sheet text missing: {expected!r}"
+# and the Thai title must survive the FILE round-trip (UTF-8 R2018 DXF), not just
+# the in-memory doc — reload what we saved and find it again
+_reloaded = ezdxf.readfile("out_service.dxf")
+_r_texts = [e.dxf.text for e in _reloaded.layouts.get("A3 SHEET") if e.dxftype() == "TEXT"]
+assert "ตู้ RTU Service Test" in _r_texts, "Thai title lost in DXF file round-trip"
+print("OK: Thai title survives the DXF write/read round-trip")
 # one horizontal duct -> no row-dim margin (mirrors web contentWidth): content is
 # the bare 800x1500 plate; in the ~392x239 draw area that needs 1:6.28 -> std 1:10
 assert "1:10" in s_texts, f"expected scale 1:10 in {[t for t in s_texts if t.startswith('1:')]}"

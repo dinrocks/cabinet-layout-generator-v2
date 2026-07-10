@@ -65,6 +65,18 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Fixed — Thai titles in the PDF exports (embedded Sarabun font)
+- **A Thai project name/title garbled in the exported PDF** — jsPDF's built-in fonts are Latin-only
+  (Arial itself carries no Thai glyphs). The engineer's real titles ARE Thai, so this would have
+  shipped a broken title block. Now **Sarabun** (OFL-licensed, the standard Thai document font,
+  Thai + Latin) is bundled and embedded (subset) into every layout/BOM PDF; the sheet font-family
+  lists it first so all sheet text uses it in the PDF.
+- Verified end-to-end in a real browser: the exact Thai title extracts back out of the generated PDF
+  bytes (pypdf), and the pre-fix control shows the mangled Latin-only encoding. The preview/PNG path
+  renders Thai via OS font fallback (verified visually); the DXF stores Thai intact through a
+  write/read round-trip (harness-asserted) — CAD renders it with its own font substitution.
+- License file ships alongside the font (`web/src/assets/Sarabun-OFL.txt`).
+
 ### Fixed — GstarCAD text overlap on the DXF sheets (cap-height vs em-size)
 - **Root cause:** DXF TEXT height means **capital-letter height** in AutoCAD/GstarCAD (TrueType rule),
   while the browser's `font-size` means **em size** — Arial caps are only ~0.72 em. The same "2.0mm"
