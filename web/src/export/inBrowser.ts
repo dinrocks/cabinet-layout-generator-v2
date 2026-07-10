@@ -104,6 +104,10 @@ async function svgIntoPdf(pdf: jsPDF, svg: string, wMm: number, hMm: number): Pr
   }
 }
 
+/** frameSvg tags a text run with "Sarabun" only when it contains Thai; so if no
+ *  page SVG mentions it, the sheet is pure Arial and needs no embedded font. */
+const needsThaiFont = (svgs: string[]): boolean => svgs.some((s) => s.includes("Sarabun"));
+
 /** Paper-fitted vector PDF (svg2pdf into a mm-unit jsPDF). */
 export async function downloadPdf(model: LayoutModel, library: Library, paper: Paper): Promise<void> {
   const page = composePageSvg(model, library, paper);
@@ -112,7 +116,8 @@ export async function downloadPdf(model: LayoutModel, library: Library, paper: P
     unit: "mm",
     format: paper.toLowerCase(),
   });
-  await ensureThaiFont(pdf); // Thai titles must not garble (export/pdfFont.ts)
+  // Arial is the default; embed Sarabun only when a Thai run needs it (pdfFont.ts).
+  if (needsThaiFont([page.svg])) await ensureThaiFont(pdf);
   await svgIntoPdf(pdf, page.svg, page.pageW, page.pageH);
   pdf.save(`${safeName(model)}.pdf`);
 }
@@ -121,7 +126,7 @@ export async function downloadPdf(model: LayoutModel, library: Library, paper: P
 export async function downloadBomPdf(model: LayoutModel, library: Library, paper: Paper): Promise<void> {
   const { svgs, pageW, pageH } = composeBomPagesSvg(model, library, paper);
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: paper.toLowerCase() });
-  await ensureThaiFont(pdf);
+  if (needsThaiFont(svgs)) await ensureThaiFont(pdf);
   for (const [i, svg] of svgs.entries()) {
     if (i > 0) pdf.addPage(paper.toLowerCase(), "landscape");
     await svgIntoPdf(pdf, svg, pageW, pageH);

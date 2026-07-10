@@ -87,22 +87,28 @@ export function composePageSvg(model: LayoutModel, library: Library, paper: Pape
   return { svg, pageW: fit.pageW, pageH: fit.pageH, orientation: fit.orientation, scaleN, titleLine };
 }
 
+// A run containing Thai codepoints opts into the embedded Sarabun (jsPDF built-ins
+// and Arial carry no Thai glyphs); everything else stays the Arial default. Per-run,
+// because a jsPDF text run is a single font — so a Latin-only sheet is pure Arial.
+const THAI_RE = /[฀-๿]/; // Thai Unicode block
+
 /** Serialize sheet lines + texts (paper mm, top-left coords) to SVG elements. */
 function frameSvg(lines: SheetLine[], texts: SheetText[]): string {
   return [
     ...lines.map((l) =>
       `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="#111" stroke-width="${l.w}"/>`),
-    ...texts.map((t) =>
-      `<text x="${t.x}" y="${t.y}" font-size="${t.h}" fill="#111" text-anchor="${t.anchor}">${esc(t.text)}</text>`),
+    ...texts.map((t) => {
+      const ff = THAI_RE.test(t.text) ? ` font-family="Sarabun, Arial, Helvetica, sans-serif"` : "";
+      return `<text x="${t.x}" y="${t.y}" font-size="${t.h}" fill="#111" text-anchor="${t.anchor}"${ff}>${esc(t.text)}</text>`;
+    }),
   ].join("");
 }
 
 function svgOpen(pageW: number, pageH: number): string {
-  // Sarabun first: it's the font registered with jsPDF (Thai + Latin — a Thai title
-  // must not garble in the PDF, see export/pdfFont.ts). Browsers without it fall
-  // back to Arial for Latin and the OS Thai fonts for Thai.
+  // Arial is the house default; only Thai-bearing runs opt into the embedded Sarabun
+  // (see frameSvg + export/pdfFont.ts), since Arial has no Thai glyphs.
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Sarabun, Arial, Helvetica, sans-serif">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${pageH}" viewBox="0 0 ${pageW} ${pageH}" font-family="Arial, Helvetica, sans-serif">` +
     `<rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#ffffff"/>`
   );
 }

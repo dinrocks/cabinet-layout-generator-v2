@@ -12,11 +12,12 @@ const b64 = readFileSync(join(__dirname, "../assets/Sarabun-Regular.ttf")).toStr
 const THAI_TITLE = "แบบแปลนตู้ควบคุม"; // "control-cabinet layout drawing"
 
 describe("registerThaiFont", () => {
-  it("registers Sarabun on the jsPDF instance", () => {
+  it("registers Sarabun but leaves Arial/helvetica the active default", () => {
     const pdf = new jsPDF();
+    const before = pdf.getFont().fontName;
     registerThaiFont(pdf, b64);
-    expect(Object.keys(pdf.getFontList())).toContain(PDF_FONT);
-    expect(pdf.getFont().fontName).toBe(PDF_FONT); // set as the active font too
+    expect(Object.keys(pdf.getFontList())).toContain(PDF_FONT); // available for selection
+    expect(pdf.getFont().fontName).toBe(before);                // but NOT made active
   });
 
   it("embeds a (subset) font program so Thai text survives into the PDF bytes", () => {
@@ -26,6 +27,7 @@ describe("registerThaiFont", () => {
 
     const pdf = new jsPDF();
     registerThaiFont(pdf, b64);
+    pdf.setFont(PDF_FONT); // svg2pdf selects it per Thai run; here we select explicitly
     pdf.text(THAI_TITLE, 20, 20);
     const out = pdf.output("arraybuffer");
     const s = Buffer.from(out).toString("latin1");
