@@ -58,24 +58,13 @@ the tech-debt item (#8) remains — deliberately deferred (see the **Deferred** 
    parts + cap-aware current-layout check (exact RPC scan a future refinement). → R5
 7. ✅ **Orphaned lib-item cleanup on save** — DONE (2026-07-03): `cleanProjectLocal` drops unplaced
    label-plate/custom items (keeps uploads). → R6
-8. ⏳ **Docs refresh + `App.tsx` split** — the only remaining item; **deferred**, see below.
-
-## Deferred — do later (no urgency)
-
-### Tech-debt cleanup (hardening #8)
-Not user-facing and nothing's broken — pick it up when onboarding needs the docs, or when App.tsx
-gets painful to edit. Two independent parts:
-
-- **Docs / guide refresh.** `guide.html` (the in-app "? Guide") and the README screenshots predate
-  a LOT: categories 1–8, the BOM (shop columns + manual rows + tag ranges), the DXF-origin rail
-  line, label plates, set caps + insert-beside, the marquee/select-row, folders, project history,
-  and the regrouped toolbar. A new teammate reading the guide today sees a different app. Trigger:
-  before onboarding anyone, or when you want the public README to actually sell the current tool.
-- **Split `App.tsx` (~900 lines).** It absorbs the toolbar, all modals, the library sidebar, the
-  properties panel, the Open dialog and every handler. The model/core stays clean; the shell is
-  accreting. Extract components — `Toolbar`, `LibrarySidebar`, `PropertiesPanel`, `OpenDialog` —
-  and group the cloud/project handlers into a hook (e.g. `useCloudProjects`). Pure refactor, no
-  behaviour change; do it when a feature edit there starts feeling slow, not before.
+8. ✅ **Docs refresh + `App.tsx` split** — DONE (2026-07-10); the hardening block is fully closed.
+   - `App.tsx` 1190 → ~510 lines: views extracted to `editor/Toolbar` / `LibrarySidebar` /
+     `PropertiesPanel` / `OpenDialog`, cloud handlers grouped into `store/useCloudProjects`.
+     Pure refactor, browser-smoke-tested.
+   - `guide.html` + README rewritten to the current tool: shared catalog + empty-start palette,
+     sets with caps + insert-beside, marquee/select-row/Ctrl+A, folders + revisions + drafts,
+     the BOM (CSV / PDF sheet / DXF tab), drawing sheets + title block, Thai support.
 
 ## Backlog (deferred, in rough priority order)
 

@@ -110,12 +110,15 @@
     <a href="#screen">The screen</a>
     <a href="#quickstart">Quick start</a>
     <a href="#parts">Add parts</a>
-    <a href="#move">Move &amp; arrange</a>
+    <a href="#sets">Sets &amp; insert</a>
+    <a href="#move">Move &amp; select</a>
     <a href="#ducts">Wire ducts</a>
     <a href="#rows">Rows</a>
     <a href="#stopper">Stoppers &amp; labels</a>
     <a href="#custom">Custom parts</a>
     <a href="#validate">Validation</a>
+    <a href="#save">Save &amp; team</a>
+    <a href="#bom">BOM</a>
     <a href="#export">Export</a>
     <a href="#keys">Keyboard</a>
   </nav>
@@ -185,30 +188,40 @@
         <div class="step"><span class="n">4</span><b>Tag &amp; check</b><p>Give parts tags; watch the Validation panel for warnings.</p></div>
         <div class="step"><span class="n">5</span><b>Export</b><p>Export DXF (needs the service) or PDF/PNG/SVG in the browser.</p></div>
       </div>
-      <div class="note tip"><div class="t">Tip</div>The app opens on a demo layout — feel free to drag things around and delete them to learn the controls. Use <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo anything.</div>
+      <div class="note tip"><div class="t">Tip</div>The app opens on a blank plate and an empty library — upload your first equipment DXF (or drop a <b>+ Custom part</b>) to get going. Signed-in teammates share one parts catalog, so a part uploaded once is there for everyone. Use <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo anything.</div>
     </section>
 
     <section id="parts">
       <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Adding parts</h2>
       <ul>
-        <li><b>From the Library:</b> parts are grouped into bands (Power, Control, Relays, Terminals…). <b>Click</b> a part to drop it in, or <b>drag</b> it onto the plate where you want it.</li>
-        <li><b>A set of identical parts:</b> use <b>Add a set</b> — pick the part, a count, and a starting tag (e.g. <code>B101</code>); they're placed in a row, auto-numbered.</li>
-        <li><b>Your own equipment:</b> drag a <code>.dxf</code> file onto the <b>Upload</b> box (top of the Library). The tool measures it and asks you to confirm the size before adding it.</li>
+        <li><b>From the Library:</b> parts are grouped into categories (Power, Control, Relays, Terminals, Stoppers, Accessories…). <b>Click</b> a part to drop it in, or <b>drag</b> it onto the plate where you want it. The <kbd>✎</kbd> beside a part edits its name, category, DIN-rail offset and BOM details; <kbd>✕</kbd> deletes it (with a warning if it's shared or placed).</li>
+        <li><b>Your own equipment:</b> drag a <code>.dxf</code> file onto the <b>Upload</b> box (top of the Library). The tool measures it, reads the <b>DIN-rail line from the DXF origin</b>, and asks you to confirm size + name + category + BOM fields (manufacturer/model/description) — and whether to share it with the team.</li>
       </ul>
-      <div class="note warn"><div class="t">Remember</div>A marked part dimension with a <code>*</code> is an unconfirmed estimate — replace it with a real datasheet/DXF size before the drawing goes to the shop.</div>
+      <div class="note warn"><div class="t">Remember</div>A part marked with <code>*</code> has an unconfirmed size estimate — replace it with a real datasheet/DXF size before the drawing goes to the shop.</div>
+    </section>
+
+    <section id="sets">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="3" height="10"/><rect x="8" y="7" width="3" height="10"/><rect x="13" y="7" width="3" height="10"/><rect x="18" y="7" width="3" height="10"/></svg>Sets &amp; inserting into a row</h2>
+      <ul>
+        <li><b>Add a set:</b> pick the part, a count, a starting tag (e.g. <code>B101</code>) and optional <b>start/end caps</b> (like a <code>D-DS2.5</code> end cover) — the run is placed rail-aligned and <b>auto-numbered without exploding</b>. Tags print on every export and count in the BOM.</li>
+        <li><b>Edit a set later:</b> select it to change count, gap, caps, or press <kbd>Explode</kbd> to turn members into individual parts.</li>
+        <li><b>⇤⇥ Insert beside:</b> select any part or set and press <kbd>Insert beside…</kbd> — pick what to insert, which side, how many, and <b>the row shifts open automatically</b>. No more nudging half a row by hand.</li>
+      </ul>
     </section>
 
     <section id="move">
-      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>Moving &amp; arranging</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>Moving &amp; selecting</h2>
       <ul>
         <li><b>Drag</b> a part on the canvas to move it. <b>Arrow keys</b> nudge by 1 mm; hold <kbd>Shift</kbd> for 10 mm.</li>
-        <li><b>Select many:</b> <kbd>Shift</kbd>+click to add/remove from the selection, then move or <kbd>Delete</kbd> them together.</li>
+        <li><b>Sweep-select (marquee):</b> <kbd>Shift</kbd>+drag a box on the canvas. <b>Left→right</b> selects what's fully inside (solid blue box); <b>right→left</b> selects everything it touches (dashed green box) — the CAD window/crossing rule. Sweeps add to the selection.</li>
+        <li><b>More selection:</b> <kbd>Shift</kbd>+click adds/removes one · <kbd>⬌ Select row</kbd> in the panel grabs every device on the same rail line · <kbd>Ctrl</kbd>+<kbd>A</kbd> selects all devices · <kbd>Esc</kbd> clears.</li>
         <li><b>Rotate:</b> select a part and press <kbd>+90°</kbd> in the panel (spacing uses the rotated footprint).</li>
         <li><b>Resize:</b> equipment keeps its true size — change it only by typing millimetres, never by stretching. (Custom parts and duct length are the exceptions; see below.)</li>
       </ul>
       <h3>Alignment helpers (the <b>Align</b> toggle)</h3>
-      <p>With <b>Align</b> on, a dragged part snaps to the <b>DIN-rail centreline</b> of its row and butts up to a
-         neighbour with the standard gap — guide lines flash to show the snap. The <b>Snap 1 mm</b> toggle adds a plain 1 mm grid.</p>
+      <p>With <b>Align</b> on, a dragged part snaps to the <b>DIN-rail line</b> of its row (each part's rail
+         offset comes from its DXF origin, editable via <kbd>✎</kbd>) and butts up to a neighbour with the
+         standard gap — guide lines flash to show the snap.</p>
     </section>
 
     <section id="ducts">
@@ -268,8 +281,8 @@
         <figcaption>“Stopper with Label” places two parts at once. They move, rotate and delete together — yet still count as 1 stopper + 1 label.</figcaption>
       </figure>
       <ul>
-        <li><b>Stopper</b> — a plain end bracket. <b>Stopper with Label</b> — a stopper plus a same-size marker plate.</li>
-        <li>After you add a "Stopper with Label", the <b>label is selected</b> so you can type its marker straight into the <b>Tag</b> box; it shows centred and vertical, like <code>X-END</code> above.</li>
+        <li>Place a stopper from a Stopper category, then press <kbd>Add label plate</kbd> in its panel — a same-size marker plate lands on it as a locked pair.</li>
+        <li>The <b>label is selected</b> right away, so you can type its marker straight into the <b>Tag</b> box; it shows centred and vertical, like <code>X-END</code> above.</li>
         <li>The two are a <b>locked pair</b>: drag, nudge, <kbd>+90°</kbd> or delete either one and both follow — but in a BOM / CAD <em>Count Block</em> they tally as two distinct items.</li>
       </ul>
     </section>
@@ -310,6 +323,27 @@
       <p>These <b>warn but allow</b> — the tool never silently moves, crops or overlaps your geometry. (Coincident markers like a stopper's label are excluded, so they don't raise false overlaps.)</p>
     </section>
 
+    <section id="save">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Saving &amp; working as a team</h2>
+      <ul>
+        <li><b>Save</b> stores the layout in the shared cloud — teammates see it in <b>Open…</b>, grouped into <b>folders</b> you can create, rename and move layouts between. The top bar shows <i>saved by who / when</i>.</li>
+        <li><b>● unsaved</b> in the toolbar means you have changes that aren't saved. The tool also keeps a crash-safe <b>draft</b>: if the browser closes, it offers to restore your unsaved work on the next launch.</li>
+        <li><b>Every Save keeps a revision</b> (last ~20). In Open…, a row's <kbd>⟲</kbd> lists them; restoring loads that version into the editor as unsaved work — nothing on the server changes until you Save.</li>
+        <li>If someone saved the same project after you opened it, Save <b>warns before overwriting</b> — you choose to overwrite or keep editing.</li>
+        <li><kbd>Duplicate</kbd> forks the current layout into a new project; <kbd>⧉</kbd> in Open… copies one without opening it.</li>
+        <li><b>No cloud needed:</b> <kbd>⬇</kbd>/<kbd>⬆</kbd> download/open the layout as a local JSON file — the editor and PDF/PNG/SVG exports work fully offline.</li>
+      </ul>
+    </section>
+
+    <section id="bom">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Bill of Materials</h2>
+      <ul>
+        <li><kbd>BOM</kbd> in the toolbar counts every placed part — shop format: <b>ITEM NO. · DESCRIPTION · MANUFACTURER · MODEL · QTY</b>. Consecutive tags collapse to ranges (<code>B101-B112</code>); unentered fields print <code>-</code>.</li>
+        <li>Add <b>manual BOM-only rows</b> for items not drawn on the plate (cabinet, name plates, lamp, fans, outlets).</li>
+        <li>Download as <b>CSV</b> (Excel) or as a <b>PDF drawing sheet</b> — the BOM table laid out on the same framed title-block page as the layout. The exported DXF carries it too, as a <b>BOM layout tab</b>.</li>
+      </ul>
+    </section>
+
     <section id="export">
       <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exporting your drawing</h2>
       <table>
@@ -320,9 +354,10 @@
         <tr><td><b>SVG</b></td><td><kbd>SVG</kbd></td><td>No — in browser</td></tr>
       </table>
       <ul>
-        <li>The DXF opens in <b>GstarCAD 2020</b> with proper layers (<code>DUCT/EQUIP/TEXT/GROUND</code>) and prints black. Every part is a named block, so CAD's <em>Count Block</em> can tally them.</li>
+        <li><b>PDF/PNG are real drawing sheets</b>: frame, zone grid and the company title block. Fill the <b>Title block</b> fields in the right panel (project/drawing no., rev, initials…) — blank fields stay blank. The computed scale prints in the SCALE cell. Thai titles are fully supported.</li>
+        <li>The DXF opens in <b>GstarCAD 2020</b> with proper layers (<code>DUCT/EQUIP/TEXT/GROUND</code>) and prints black. Every part is a named block, so CAD's <em>Count Block</em> can tally them — and the file carries plot-ready <b>“A3 SHEET”</b> and <b>“BOM”</b> layout tabs.</li>
         <li>At <code>1:100</code> the geometry is drawn 1/100 size but dimension text still reads the real millimetres.</li>
-        <li>PDF/PNG/SVG auto-fit the chosen paper and print the resulting scale in the title line — and they work even if the DXF service is asleep.</li>
+        <li>PDF/PNG/SVG work in the browser even if the DXF service is asleep.</li>
       </ul>
       <div class="note"><div class="t">DXF service</div>The status chip in the toolbar shows whether the ezdxf service is online. If it's offline, DXF is disabled but every other export still works; click the chip to retry (a free host may need a few seconds to wake).</div>
     </section>
@@ -334,6 +369,9 @@
         <tr><td>Move selection 1 mm</td><td><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></td></tr>
         <tr><td>Move selection 10 mm</td><td><kbd>Shift</kbd> + arrow</td></tr>
         <tr><td>Add / remove from selection</td><td><kbd>Shift</kbd> + click</td></tr>
+        <tr><td>Sweep-select (window / crossing)</td><td><kbd>Shift</kbd> + drag L→R / R→L</td></tr>
+        <tr><td>Select all devices</td><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td></tr>
+        <tr><td>Clear selection</td><td><kbd>Esc</kbd></td></tr>
         <tr><td>Delete selected</td><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td></tr>
         <tr><td>Undo / Redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
         <tr><td>Zoom at cursor</td><td>Mouse wheel</td></tr>
