@@ -65,6 +65,16 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Added — portable bundle export (Phase 3, part 1)
+- **Bundle** button in the toolbar downloads `<name>.bundle.zip`: the layout JSON (the exact same
+  envelope the ⬇/⬆ buttons use, so it re-imports directly) plus the **raw DXF of every placed uploaded
+  part** (elements, set members, set caps — deduped) and a README. Nothing about a drawing stays
+  trapped in a cloud bucket — "free + portable, every layer" (CLAUDE.md §5).
+- New service endpoint `GET /block/{id}` serves a retained equipment DXF (auth-guarded like /export;
+  id regex-validated — traversal-safe; clean 404 with a re-upload hint when a block is gone). A missing
+  block fails the bundle loudly rather than shipping an incomplete ZIP.
+- Pure tested core `model/bundle.ts` (manifest + ZIP-safe names); `test_block.py` harness runs in CI.
+
 ### Changed — App.tsx split into focused modules (hardening #8, part 1)
 - Pure refactor, no behaviour change: the 1190-line shell is now ~500 lines of state + wiring, with
   the views extracted to `editor/Toolbar`, `editor/LibrarySidebar`, `editor/PropertiesPanel`,

@@ -19,9 +19,15 @@ function nonSeed(library: Library): Library {
   return Object.fromEntries(Object.entries(library).filter(([k]) => !(k in SEED_LIBRARY)));
 }
 
-export function downloadLayout(model: LayoutModel, library: Library): void {
+/** The layout-file JSON — one envelope everywhere (⬇ download AND the bundle ZIP),
+ *  so either re-imports via ⬆. */
+export function layoutEnvelopeJson(model: LayoutModel, library: Library): string {
   const env: Envelope = { schema: SCHEMA, model, library: nonSeed(library) };
-  const blob = new Blob([JSON.stringify(env, null, 2)], { type: "application/json" });
+  return JSON.stringify(env, null, 2);
+}
+
+export function downloadLayout(model: LayoutModel, library: Library): void {
+  const blob = new Blob([layoutEnvelopeJson(model, library)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const safe = (model.project.name || "layout").replace(/[^\w.-]+/g, "_");

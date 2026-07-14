@@ -82,9 +82,10 @@ Record **who created / edited / saved** each project and when; a simple activity
   cross-project reuse → secured export).
 
 ### 3. Phase 3 — share-link + bundle (from CLAUDE.md §6)
-- Read-only **share link** for a layout (view/print without edit).
-- **Bundle export** (layout JSON + referenced equipment DXFs) so an engineer isn't trapped if a
-  free tier changes — "free + portable, every layer" (CLAUDE.md §5).
+- Read-only **share link** for a layout (view/print without edit) — the remaining half.
+- ✅ **Bundle export** — DONE (2026-07-10): toolbar **Bundle** → `<name>.bundle.zip` with the layout
+  JSON envelope + every placed uploaded part's raw DXF (via the new auth-guarded `GET /block/{id}`)
+  + README. Pure core `model/bundle.ts`; `test_block.py` harness in CI.
 
 ### Smaller polish / known limitations
 - Uploaded-SVG overlay can sit slightly off the footprint box for some parts (canvas only;

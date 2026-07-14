@@ -14,7 +14,7 @@ from typing import Any
 import ezdxf
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 import dxf_build
@@ -79,6 +79,25 @@ async def upload(file: UploadFile = File(...), _user: str | None = Depends(requi
     if not result.get("ok"):
         raise HTTPException(422, result.get("error", "Upload failed."))
     return result
+
+
+# block ids are store-generated slugs; reject anything else so the id can never
+# traverse paths or smuggle URL syntax into the storage lookup
+_BLOCK_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
+@app.get("/block/{block_id}")
+def get_block(block_id: str, _user: str | None = Depends(require_user)) -> FileResponse:
+    """Download a retained equipment DXF by its block ref — used by the portable
+    bundle export (layout JSON + the DXFs it references), CLAUDE.md §5 anti-lock-in."""
+    if not _BLOCK_ID.match(block_id):
+        raise HTTPException(400, "Invalid block id.")
+    try:
+        p = store.path(block_id)
+    except store.BlockNotFoundError:
+        raise HTTPException(404, "Block not found — re-upload that part, then try again.") from None
+    return FileResponse(p, media_type="application/dxf",
+                        filename=f"{block_id}.dxf")
 
 
 class ExportRequest(BaseModel):

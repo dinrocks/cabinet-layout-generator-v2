@@ -48,3 +48,5 @@ jobs:
         run: python test_auth.py
       - name: rail-datum capture harness
         run: python test_upload_rail.py
+      - name: block download harness (bundle export)
+        run: python test_block.py

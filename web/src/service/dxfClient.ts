@@ -113,6 +113,18 @@ export async function exportDxf(
   triggerDownload(blob, `${name}.dxf`);
 }
 
+/** Download a retained equipment DXF by block ref (for the portable bundle). */
+export async function fetchBlock(blockRef: string): Promise<Blob> {
+  const res = await serviceFetch(`/block/${encodeURIComponent(blockRef)}`, {
+    method: "GET",
+    headers: await authHeader(),
+  });
+  if (!res.ok) {
+    throw new Error(`Couldn't fetch part "${blockRef}" (${res.status}). ${await errorDetail(res)}`.trim());
+  }
+  return res.blob();
+}
+
 /** Upload an equipment DXF → measured size + SVG + retained block. */
 export async function uploadDxf(file: File): Promise<UploadResult> {
   const form = new FormData();

@@ -34,6 +34,7 @@ import InsertModal from "./editor/InsertModal";
 import { insertBeside } from "./model/insert";
 import { exportDxf, uploadDxf, ping, type DxfScale } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
+import { downloadBundle } from "./export/bundle";
 import type { Paper } from "./render/page";
 import "./App.css";
 
@@ -397,6 +398,7 @@ export default function App() {
         onRename={renameProject} onNew={doNewProject} onOpenProjects={cloud.openProjectsModal}
         onSave={cloud.doSaveCloud} onDuplicate={cloud.doDuplicateCurrent}
         onDownload={doDownload} onOpenFile={doOpenFile}
+        onBundle={() => run("Bundle", () => downloadBundle(model, library))}
         onUndo={undo} onRedo={redo} onZoom={setZoom} onFit={() => setFitNonce((n) => n + 1)}
         onAlign={setAlignEnabled} onCheckSvc={checkSvc}
         onDxfScale={setDxfScale} onPaper={setPaper}

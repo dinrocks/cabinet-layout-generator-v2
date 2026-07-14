@@ -35,6 +35,7 @@ interface Props {
   onDuplicate: () => void;
   onDownload: () => void;
   onOpenFile: () => void;
+  onBundle: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onZoom: (z: number) => void;
@@ -53,7 +54,7 @@ interface Props {
 export default function Toolbar({
   model, auth, ready, dirty, status, busy, lastSaved, cloudBusy, svc, dxfScale, paper,
   zoom, alignEnabled, canUndo, canRedo,
-  onRename, onNew, onOpenProjects, onSave, onDuplicate, onDownload, onOpenFile,
+  onRename, onNew, onOpenProjects, onSave, onDuplicate, onDownload, onOpenFile, onBundle,
   onUndo, onRedo, onZoom, onFit, onAlign, onCheckSvc, onDxfScale, onPaper,
   onExportDxf, onPdf, onPng, onSvg, onBom,
 }: Props) {
@@ -83,6 +84,9 @@ export default function Toolbar({
           {ready && <button type="button" className="ghost" title="Save the current layout as a new project (a copy) and switch to it" disabled={cloudBusy} onClick={onDuplicate}>Duplicate</button>}
           <button type="button" className="ghost icon" title="Download layout as JSON" onClick={onDownload}>⬇</button>
           <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={onOpenFile}>⬆</button>
+          <button type="button" className="ghost" disabled={busy}
+            title="Portable bundle: one ZIP with the layout JSON + every placed equipment DXF (nothing trapped in the cloud). Needs the DXF service for uploaded parts."
+            onClick={onBundle}>Bundle</button>
         </span>
         {/* History */}
         <span className="group">
