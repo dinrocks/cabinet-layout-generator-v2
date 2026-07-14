@@ -31,6 +31,7 @@ import UploadModal, { type BomMeta } from "./editor/UploadModal";
 import BomModal from "./editor/BomModal";
 import EditPartModal, { type PartEdit } from "./editor/EditPartModal";
 import InsertModal from "./editor/InsertModal";
+import ShareModal from "./editor/ShareModal";
 import { insertBeside } from "./model/insert";
 import { exportDxf, uploadDxf, ping, type DxfScale } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
@@ -163,6 +164,7 @@ export default function App() {
   // live ezdxf-service availability (DXF upload/export need it; PDF/PNG/SVG don't)
   const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
   const [showBom, setShowBom] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
   const [insertFor, setInsertFor] = useState<InsertTarget | null>(null);
   const checkSvc = async () => {
@@ -399,6 +401,7 @@ export default function App() {
         onSave={cloud.doSaveCloud} onDuplicate={cloud.doDuplicateCurrent}
         onDownload={doDownload} onOpenFile={doOpenFile}
         onBundle={() => run("Bundle", () => downloadBundle(model, library))}
+        shareableId={cloud.projectId} onShare={() => setShowShare(true)}
         onUndo={undo} onRedo={redo} onZoom={setZoom} onFit={() => setFitNonce((n) => n + 1)}
         onAlign={setAlignEnabled} onCheckSvc={checkSvc}
         onDxfScale={setDxfScale} onPaper={setPaper}
@@ -467,6 +470,11 @@ export default function App() {
       {insertFor && (
         <InsertModal library={library} anchorName={insertFor.name}
           onInsert={doInsertBeside} onCancel={() => setInsertFor(null)} />
+      )}
+
+      {showShare && cloud.projectId && (
+        <ShareModal projectId={cloud.projectId} projectName={model.project.name}
+          onClose={() => setShowShare(false)} />
       )}
 
       {cloud.historyFor && (

@@ -215,3 +215,37 @@ create policy "members update folders" on public.folders
 drop policy if exists "owner or admin delete folders" on public.folders;
 create policy "owner or admin delete folders" on public.folders
   for delete using (owner = auth.uid() or public.is_admin());
+
+-- ── Phase 3: read-only share links ─────────────────────────────────────────
+-- A project with a share_token is viewable (read-only) by ANYONE holding the
+-- exact token — via the RPC below only. RLS stays closed; clearing the token
+-- revokes the link instantly. Members create/clear it through the normal
+-- "members update projects" policy.
+alter table public.projects add column if not exists share_token text unique;
+
+-- The ONLY anonymous door: exact-token lookup returning just what the viewer
+-- needs (never listable, no member/owner data beyond the display name).
+-- `catalog` carries the shared library_items the layout actually references
+-- (anonymous viewers can't read the members-only catalog table) — only those,
+-- never the whole catalog.
+create or replace function public.shared_project(token text)
+returns table (name text, layout jsonb, library jsonb, catalog jsonb, updated_at timestamptz)
+language sql security definer stable set search_path = public as $$
+  select p.name, p.layout, p.library,
+    (select coalesce(jsonb_object_agg(li.lib_key, to_jsonb(li)), '{}'::jsonb)
+     from public.library_items li
+     where li.lib_key in (
+       select e->>'lib_key' from jsonb_array_elements(coalesce(p.layout->'elements', '[]'::jsonb)) e
+       union
+       select g->>'lib_key' from jsonb_array_elements(coalesce(p.layout->'groups', '[]'::jsonb)) g
+       union
+       select g->>'cap_start_key' from jsonb_array_elements(coalesce(p.layout->'groups', '[]'::jsonb)) g
+       union
+       select g->>'cap_end_key' from jsonb_array_elements(coalesce(p.layout->'groups', '[]'::jsonb)) g
+     )),
+    p.updated_at
+  from public.projects p
+  where p.share_token is not null and p.share_token = token
+$$;
+revoke all on function public.shared_project(text) from public;
+grant execute on function public.shared_project(text) to anon, authenticated;

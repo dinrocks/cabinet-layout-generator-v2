@@ -81,8 +81,10 @@ Record **who created / edited / saved** each project and when; a simple activity
 - Full **end-to-end verification across two allow-listed teammates** (upload → shared library →
   cross-project reuse → secured export).
 
-### 3. Phase 3 — share-link + bundle (from CLAUDE.md §6)
-- Read-only **share link** for a layout (view/print without edit) — the remaining half.
+### 3. Phase 3 — share-link + bundle (from CLAUDE.md §6) — ✅ COMPLETE
+- ✅ **Share link** — DONE (2026-07-10): revocable `?share=<token>` viewer (live latest save,
+  view + PDF/PNG/BOM only) via a SECURITY DEFINER exact-token RPC; RLS stays closed. Toolbar
+  **Share** creates/copies/revokes. Needs one `schema.sql` re-run.
 - ✅ **Bundle export** — DONE (2026-07-10): toolbar **Bundle** → `<name>.bundle.zip` with the layout
   JSON envelope + every placed uploaded part's raw DXF (via the new auth-guarded `GET /block/{id}`)
   + README. Pure core `model/bundle.ts`; `test_block.py` harness in CI.

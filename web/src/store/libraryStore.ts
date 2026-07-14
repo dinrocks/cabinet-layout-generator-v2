@@ -6,7 +6,7 @@
 import { supabase } from "../lib/supabaseClient";
 import type { DxfLibItem, Library } from "../model/types";
 
-interface Row {
+export interface LibraryRow {
   lib_key: string;
   name: string;
   width_mm: number;
@@ -20,6 +20,21 @@ interface Row {
   description: string | null;
 }
 
+/** One catalog DB row → a library item (also used for the share-link RPC payload). */
+export function rowToItem(r: LibraryRow): DxfLibItem {
+  const item: DxfLibItem = {
+    lib_key: r.lib_key, source: "dxf", name: r.name,
+    width_mm: r.width_mm, height_mm: r.height_mm,
+    block_ref: r.block_ref, svg_ref: r.svg_ref ?? "",
+  };
+  if (r.rail_offset_mm != null) item.rail_offset_mm = r.rail_offset_mm;
+  if (r.band != null) item.band = r.band;
+  if (r.manufacturer) item.manufacturer = r.manufacturer;
+  if (r.model) item.model = r.model;
+  if (r.description) item.description = r.description;
+  return item;
+}
+
 /** All shared parts, keyed by lib_key, ready to merge into the library state. */
 export async function listLibraryItems(): Promise<Library> {
   if (!supabase) return {};
@@ -28,19 +43,7 @@ export async function listLibraryItems(): Promise<Library> {
     .select("lib_key,name,width_mm,height_mm,block_ref,svg_ref,rail_offset_mm,band,manufacturer,model,description");
   if (error || !data) return {};
   const out: Library = {};
-  for (const r of data as Row[]) {
-    const item: DxfLibItem = {
-      lib_key: r.lib_key, source: "dxf", name: r.name,
-      width_mm: r.width_mm, height_mm: r.height_mm,
-      block_ref: r.block_ref, svg_ref: r.svg_ref ?? "",
-    };
-    if (r.rail_offset_mm != null) item.rail_offset_mm = r.rail_offset_mm;
-    if (r.band != null) item.band = r.band;
-    if (r.manufacturer) item.manufacturer = r.manufacturer;
-    if (r.model) item.model = r.model;
-    if (r.description) item.description = r.description;
-    out[r.lib_key] = item;
-  }
+  for (const r of data as LibraryRow[]) out[r.lib_key] = rowToItem(r);
   return out;
 }
 

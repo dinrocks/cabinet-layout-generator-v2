@@ -65,6 +65,17 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Added — read-only share links (Phase 3, part 2 — Phase 3 complete)
+- **Share** button (on a saved cloud project) creates a revocable link — `?share=<token>` — that anyone
+  can open **without an account**: a read-only viewer showing the **latest saved version** (never
+  unsaved editor work), rendered by the same engine as the editor, with PDF/PNG/BOM-sheet downloads.
+  No editing, no DXF, no service dependency for the viewer.
+- Security model: RLS stays closed. The only anonymous door is a `SECURITY DEFINER` RPC that answers
+  an **exact 32-byte token match** and returns just the layout + the shared-catalog items it references
+  (never listable, never the whole catalog). Revoke = clear the token; the link dies instantly.
+- **Action needed once:** re-run `supabase/schema.sql` (adds `projects.share_token` + the
+  `shared_project` RPC).
+
 ### Added — portable bundle export (Phase 3, part 1)
 - **Bundle** button in the toolbar downloads `<name>.bundle.zip`: the layout JSON (the exact same
   envelope the ⬇/⬆ buttons use, so it re-imports directly) plus the **raw DXF of every placed uploaded

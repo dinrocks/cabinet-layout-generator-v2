@@ -36,6 +36,9 @@ interface Props {
   onDownload: () => void;
   onOpenFile: () => void;
   onBundle: () => void;
+  /** null = no cloud project open (Share disabled until first Save) */
+  shareableId: string | null;
+  onShare: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onZoom: (z: number) => void;
@@ -54,7 +57,7 @@ interface Props {
 export default function Toolbar({
   model, auth, ready, dirty, status, busy, lastSaved, cloudBusy, svc, dxfScale, paper,
   zoom, alignEnabled, canUndo, canRedo,
-  onRename, onNew, onOpenProjects, onSave, onDuplicate, onDownload, onOpenFile, onBundle,
+  onRename, onNew, onOpenProjects, onSave, onDuplicate, onDownload, onOpenFile, onBundle, shareableId, onShare,
   onUndo, onRedo, onZoom, onFit, onAlign, onCheckSvc, onDxfScale, onPaper,
   onExportDxf, onPdf, onPng, onSvg, onBom,
 }: Props) {
@@ -82,6 +85,13 @@ export default function Toolbar({
           {ready && <button type="button" title="Open a saved layout" onClick={onOpenProjects}>Open…</button>}
           {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={onSave}>Save</button>}
           {ready && <button type="button" className="ghost" title="Save the current layout as a new project (a copy) and switch to it" disabled={cloudBusy} onClick={onDuplicate}>Duplicate</button>}
+          {ready && (
+            <button type="button" className="ghost" disabled={!shareableId || cloudBusy}
+              title={shareableId
+                ? "Share a read-only link (view + PDF/PNG of the latest saved version)"
+                : "Save the project to the cloud first, then share a read-only link"}
+              onClick={onShare}>Share</button>
+          )}
           <button type="button" className="ghost icon" title="Download layout as JSON" onClick={onDownload}>⬇</button>
           <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={onOpenFile}>⬆</button>
           <button type="button" className="ghost" disabled={busy}

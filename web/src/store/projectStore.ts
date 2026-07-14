@@ -4,6 +4,7 @@
  * isn't configured — callers fall back to the local-file path (localFile.ts).
  */
 import { supabase } from "../lib/supabaseClient";
+import { rowToItem, type LibraryRow } from "./libraryStore";
 import { SEED_LIBRARY } from "../model/library";
 import type { LayoutModel, Library } from "../model/types";
 
@@ -262,4 +263,42 @@ export async function getProjectVersion(id: string): Promise<{ updatedAt: string
   if (!data) return null;
   const r = data as { updated_at: string; updater: Embed };
   return { updatedAt: r.updated_at, updatedByName: embedName(r.updater) };
+}
+
+// ── Phase 3: read-only share links ──────────────────────────────────────────
+
+/** The project's current share token (null = not shared). Members only (RLS). */
+export async function getShareToken(projectId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("projects").select("share_token").eq("id", projectId).single();
+  if (error || !data) return null;
+  return (data as { share_token: string | null }).share_token;
+}
+
+/** Set (share) or clear (revoke) the token. Members only (RLS update policy). */
+export async function setShareToken(projectId: string, token: string | null): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("projects").update({ share_token: token }).eq("id", projectId);
+  return !error;
+}
+
+/** Anonymous exact-token fetch via the shared_project RPC (the ONLY open door).
+ *  Returns null for an unknown/revoked token. `catalog` = the shared library_items
+ *  the layout references (viewers can't read the members-only catalog directly). */
+export async function loadSharedProject(token: string):
+  Promise<{ name: string; model: LayoutModel; library: Library; updatedAt: string } | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("shared_project", { token });
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { name: string; layout: LayoutModel; library: Library | null; catalog: Record<string, LibraryRow> | null; updated_at: string }
+    | undefined;
+  if (error || !row?.layout) return null;
+  const catalog: Library = Object.fromEntries(
+    Object.entries(row.catalog ?? {}).map(([k, r]) => [k, rowToItem(r)]),
+  );
+  return {
+    name: row.name, model: row.layout,
+    library: { ...catalog, ...(row.library ?? {}) },
+    updatedAt: row.updated_at,
+  };
 }
