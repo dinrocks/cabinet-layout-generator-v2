@@ -10,12 +10,22 @@
  * SVG's own convention, so no Y flip here. The DXF assembler is the only place
  * that flips to bottom-left.
  */
-import type { LayoutModel, Library, Element } from "../model/types";
+import type { LayoutModel, Library, Element, LibItem } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { rowDims, ROW_DIM_MARGIN_MM, detectRows } from "../model/rows";
 import { stepTag } from "../model/edit";
 import { groupLayout } from "../model/sets";
+import { embedPartSvg } from "./embedSvg";
+
+/** The part's real linework (uploaded-DXF SVG) placed over its footprint — the
+ *  monochrome-plot look. Empty string when the part has none / it can't parse. */
+function partLinework(item: LibItem | undefined, ns: string,
+  x: number, y: number, rot: number, fw: number, fh: number): string {
+  if (!item || item.source !== "dxf" || !item.svg_ref) return "";
+  const box = { x, y, w: item.width_mm, h: item.height_mm };
+  return embedPartSvg(item.svg_ref, ns, box, rot, x + fw / 2, y + fh / 2) ?? "";
+}
 
 export interface RenderOptions {
   /** Draw selection-free; exports use this. Defaults to a clean render. */
@@ -89,13 +99,15 @@ function renderElement(el: Element, library: Library): string {
       : "";
     return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
   }
+  // the real uploaded linework over the footprint rect (monochrome-plot style)
+  const art = partLinework(item, `${el.id}-`, el.x_mm, el.y_mm, el.rot_deg, f.w, f.h);
   // tag above the part ("in plain sight"), small + centered by category
   const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w, tagFontMm(item.band)) : "";
   // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
   const center = item.source === "rect" && item.custom && item.name
     ? tagText(item.name, el.x_mm + f.w / 2, el.y_mm + f.h / 2, 0, fitFontSize(item.name, f.w, f.h))
     : "";
-  return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}${center}</g>`;
+  return `<g data-id="${el.id}" data-layer="EQUIP">${body}${art}${label}${center}</g>`;
 }
 
 /**
@@ -150,8 +162,10 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     const layout = groupLayout(g, library);
     if (!item || !layout) continue;
     parts.push(`<g data-id="${g.id}" data-layer="EQUIP">`);
-    for (const p of layout.pieces) {
+    for (const [pi, p] of layout.pieces.entries()) {
       parts.push(`<rect x="${p.x_mm}" y="${p.y_mm}" width="${p.w}" height="${p.h}" fill="#fff" stroke="#222" stroke-width="0.3"/>`);
+      // real linework for members/caps too (an uploaded terminal drawing repeats)
+      parts.push(partLinework(library[p.lib_key], `${g.id}-${pi}-`, p.x_mm, p.y_mm, g.rot_deg, p.w, p.h));
       // auto-number each member in place (caps stay untagged)
       if (p.kind === "member" && g.tag_start) {
         parts.push(partTag(stepTag(g.tag_start, (p.index ?? 0) * g.tag_step), p.x_mm, p.y_mm, p.w, tagFontMm(item.band)));

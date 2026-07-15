@@ -65,6 +65,16 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Added — real device linework in PDF/PNG/SVG exports
+- **Uploaded parts no longer export as bare rectangles.** The vector drawing captured at upload
+  (`svg_ref` — the same one the editor canvas overlays) is now embedded into the export renderer,
+  scaled/rotated onto each part's footprint: PDFs carry the part's real linework as vectors, like a
+  monochrome plot from GstarCAD. Applies to placed elements AND set members/caps; PNG/SVG get it too.
+- Styled like a monochrome CAD plot: the ezdxf screen background is stripped, every stroke/fill maps
+  to print black, white fills stay white (masks). Per-instance class/id namespacing so repeated parts
+  can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
+- Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged.
+
 ### Added — read-only share links (Phase 3, part 2 — Phase 3 complete)
 - **Share** button (on a saved cloud project) creates a revocable link — `?share=<token>` — that anyone
   can open **without an account**: a read-only viewer showing the **latest saved version** (never

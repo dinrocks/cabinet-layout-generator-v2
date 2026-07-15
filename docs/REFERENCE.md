@@ -35,6 +35,7 @@ disagree, the code wins — fix this file in the same commit. Companion docs: [W
 |---|---|
 | Plate | fill `#fafafa`, stroke `#000` @ 0.8 |
 | Equipment rect | fill `#fff`, stroke `#222` @ 0.4 (set members 0.3; set piece outlines `#555` @ 0.25) |
+| Uploaded-part linework (exports) | `svg_ref` embedded monochrome (strokes/fills → `#111`, white fills kept as masks, bg stripped) via `render/embedSvg.ts`; canvas keeps its own Fabric overlay |
 | Wire duct | fill `#eef3ff`, stroke `#3559b3` @ 0.4 |
 | Text | `#111` canvas / black SVG; row dims `#333`; stopper labels (canvas) `#1a7f37` |
 | Unresolved part | fill `#fdd`/`#fdecec`, stroke `#c00` dashed — never silent |
