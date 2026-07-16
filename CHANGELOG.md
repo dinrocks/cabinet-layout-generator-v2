@@ -65,6 +65,15 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Fixed — PDF/PNG export froze the browser on large real projects (R2-4)
+- A real 750×1060 layout (~300 placed devices) crashed the browser on PDF export: every placement
+  embedded a **full copy** of its part's drawing, making a multi-megabyte SVG that svg2pdf parsed on
+  the main thread. The linework embed is now **define-once / use-many**: each distinct part becomes a
+  single `<defs>` entry and every placement is a one-line `<use>` with a transform.
+- Measured on a 299-placement stress model with detailed (160-path) parts: export SVG **197 KB vs
+  ~5.5 MB** before, page compose 10 ms, svg2pdf **0.95 s** (was: freeze), PDF 305 KB — with the
+  linework verified rendering in the PDF, the PNG path and the share viewer.
+
 ### Added — real device linework in PDF/PNG/SVG exports
 - **Uploaded parts no longer export as bare rectangles.** The vector drawing captured at upload
   (`svg_ref` — the same one the editor canvas overlays) is now embedded into the export renderer,

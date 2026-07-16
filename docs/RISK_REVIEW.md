@@ -202,11 +202,15 @@ JWT-guarded like `/export`; block ids are regex-validated (path-traversal tested
 as the shared catalog itself. Residual DoS/egress risk is the same class as `/upload` (already
 size-capped) — free-tier alarms are the trigger.
 
-## R2-4. Linework embedding: size/perf on big sets (recorded)
-Each set member duplicates the part's SVG string — a 100-terminal strip with a detailed drawing
-makes exports several MB and svg2pdf slower. Correct but heavy. **Trigger:** a real export
-feels slow / a PDF balloons → switch the embed to one `<defs>` definition + `<use>` per
-placement (svg2pdf supports `<use>`), which also shrinks SVG downloads.
+## R2-4. Linework embedding: size/perf on big sets — ✅ FIXED (2026-07-16)
+Each set member duplicated the part's SVG string; the trigger fired on the FIRST real project
+(750×1060, ~300 placements): the PDF export froze the engineer's browser. **Fix shipped:** the
+embed is now define-once/use-many — each distinct part becomes one `<defs>` entry
+(`buildPartDef`), every placement a one-line `<use>` (`placePartUse`), and the sanitizer/
+recolour regexes run once per part instead of once per placement. Measured on a 299-placement
+stress model with 160-path parts: export SVG 197 KB vs ~5.5 MB before (28×), compose 10 ms,
+svg2pdf 0.95 s, PDF 305 KB with the linework verified rendering in all three consumers
+(svg2pdf, the `<img>`/PNG path, the share viewer).
 
 ## R2-5. Monochrome mapping edge (recorded)
 `embedSvg` recolours hex colours (attr + CSS forms). ezdxf emits hex today; if a future ezdxf

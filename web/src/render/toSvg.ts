@@ -16,15 +16,32 @@ import { rotatedFootprint } from "../model/geometry";
 import { rowDims, ROW_DIM_MARGIN_MM, detectRows } from "../model/rows";
 import { stepTag } from "../model/edit";
 import { groupLayout } from "../model/sets";
-import { embedPartSvg } from "./embedSvg";
+import { buildPartDef, placePartUse, type PartDef } from "./embedSvg";
 
-/** The part's real linework (uploaded-DXF SVG) placed over its footprint — the
+/** Placement stamp for a part's real linework (uploaded-DXF SVG) — the
  *  monochrome-plot look. Empty string when the part has none / it can't parse. */
-function partLinework(item: LibItem | undefined, ns: string,
-  x: number, y: number, rot: number, fw: number, fh: number): string {
-  if (!item || item.source !== "dxf" || !item.svg_ref) return "";
-  const box = { x, y, w: item.width_mm, h: item.height_mm };
-  return embedPartSvg(item.svg_ref, ns, box, rot, x + fw / 2, y + fh / 2) ?? "";
+type StampArt = (item: LibItem | undefined, x: number, y: number, rot: number, fw: number, fh: number) => string;
+
+/** Per-render collector: each distinct part's artwork is built ONCE for <defs>;
+ *  every placement is a one-line <use> (RISK_REVIEW R2-4 — a set can stamp the
+ *  same terminal drawing hundreds of times without duplicating it). */
+function partDefs(): { stamp: StampArt; defsMarkup: () => string } {
+  const defs = new Map<string, PartDef | null>(); // lib_key → def (null = unparseable, cached)
+  const stamp: StampArt = (item, x, y, rot, fw, fh) => {
+    if (!item || item.source !== "dxf" || !item.svg_ref) return "";
+    let d = defs.get(item.lib_key);
+    if (d === undefined) {
+      d = buildPartDef(item.svg_ref, `pt${defs.size}`);
+      defs.set(item.lib_key, d);
+    }
+    if (!d) return "";
+    return placePartUse(d, { x, y, w: item.width_mm, h: item.height_mm }, rot, x + fw / 2, y + fh / 2);
+  };
+  const defsMarkup = () => {
+    const built = [...defs.values()].filter((d): d is PartDef => !!d);
+    return built.length ? `<defs>${built.map((d) => d.def).join("")}</defs>` : "";
+  };
+  return { stamp, defsMarkup };
 }
 
 export interface RenderOptions {
@@ -82,7 +99,7 @@ function partTag(text: string, px: number, py: number, fw: number, capMm: number
   return `<text x="${cx}" y="${py - TAG_GAP_MM}" font-size="${h}" text-anchor="middle">${esc(text)}</text>`;
 }
 
-function renderElement(el: Element, library: Library): string {
+function renderElement(el: Element, library: Library, stampArt: StampArt): string {
   const item = library[el.lib_key];
   if (!item) {
     // unresolved — draw a dashed placeholder so the gap is visible, never silent
@@ -100,7 +117,7 @@ function renderElement(el: Element, library: Library): string {
     return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
   }
   // the real uploaded linework over the footprint rect (monochrome-plot style)
-  const art = partLinework(item, `${el.id}-`, el.x_mm, el.y_mm, el.rot_deg, f.w, f.h);
+  const art = stampArt(item, el.x_mm, el.y_mm, el.rot_deg, f.w, f.h);
   // tag above the part ("in plain sight"), small + centered by category
   const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w, tagFontMm(item.band)) : "";
   // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
@@ -137,6 +154,7 @@ function renderRowDims(model: LayoutModel): string {
 export function renderPlateBody(model: LayoutModel, library: Library): string {
   const { width_mm: W, height_mm: H } = model.plate;
 
+  const pd = partDefs(); // define-once/use-many part artwork (R2-4)
   const parts: string[] = [];
 
   // plate outline (PLATE layer)
@@ -162,10 +180,10 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     const layout = groupLayout(g, library);
     if (!item || !layout) continue;
     parts.push(`<g data-id="${g.id}" data-layer="EQUIP">`);
-    for (const [pi, p] of layout.pieces.entries()) {
+    for (const p of layout.pieces) {
       parts.push(`<rect x="${p.x_mm}" y="${p.y_mm}" width="${p.w}" height="${p.h}" fill="#fff" stroke="#222" stroke-width="0.3"/>`);
       // real linework for members/caps too (an uploaded terminal drawing repeats)
-      parts.push(partLinework(library[p.lib_key], `${g.id}-${pi}-`, p.x_mm, p.y_mm, g.rot_deg, p.w, p.h));
+      parts.push(pd.stamp(library[p.lib_key], p.x_mm, p.y_mm, g.rot_deg, p.w, p.h));
       // auto-number each member in place (caps stay untagged)
       if (p.kind === "member" && g.tag_start) {
         parts.push(partTag(stepTag(g.tag_start, (p.index ?? 0) * g.tag_step), p.x_mm, p.y_mm, p.w, tagFontMm(item.band)));
@@ -175,7 +193,7 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
   }
 
   // elements
-  for (const el of model.elements) parts.push(renderElement(el, library));
+  for (const el of model.elements) parts.push(renderElement(el, library, pd.stamp));
 
   // labels (stopper labels)
   for (const l of model.labels) {
@@ -194,6 +212,9 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
   // row-height dimensions in the right margin
   parts.push(renderRowDims(model));
 
+  // part definitions FIRST so every <use> resolves forward-safe in any renderer
+  parts.unshift(pd.defsMarkup());
+
   return parts.join("");
 }
 
@@ -209,7 +230,7 @@ export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOp
   const wPx = W * scale;
   const hPx = H * scale;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${wPx}" height="${hPx}" viewBox="0 0 ${W} ${H}" font-family="Arial, Helvetica, sans-serif">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${wPx}" height="${hPx}" viewBox="0 0 ${W} ${H}" font-family="Arial, Helvetica, sans-serif">`,
     renderPlateBody(model, library),
     `</svg>`,
   ].join("");
