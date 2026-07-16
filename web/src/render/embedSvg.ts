@@ -39,6 +39,19 @@ function monochrome(s: string): string {
     .replace(new RegExp(`fill:\\s*(${HEX.source})`, "g"), (_m, c: string) => `fill: ${plotColor(c, "fill")}`);
 }
 
+/** Strip anything executable. svg_ref normally comes from our own service, but a
+ *  layout JSON can be hand-edited and imported (⬆) — and shared layouts render in
+ *  ANONYMOUS viewers' browsers (share links), so treat it as untrusted markup:
+ *  no scripts, no event-handler attributes, no foreignObject, no js: URLs. */
+function sanitized(s: string): string {
+  return s
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<foreignObject\b[\s\S]*?<\/foreignObject\s*>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/((?:xlink:)?href\s*=\s*")\s*javascript:[^"]*(")/gi, "$1#$2");
+}
+
 /** Prefix ezdxf's `C<n>` class names and any `id="…"` refs with the instance ns. */
 function namespaced(s: string, ns: string): string {
   return s
@@ -72,7 +85,7 @@ export function embedPartSvg(
     new RegExp(`<rect fill="${HEX.source}" x="0" y="0" width="${vbw}" height="${vbh}"[^/>]*/>`),
     "",
   );
-  inner = namespaced(monochrome(inner), ns);
+  inner = namespaced(monochrome(sanitized(inner)), ns);
 
   // centre-based mapping (same semantics as the editor's canvas overlay):
   // scale the viewBox onto the unrotated box, then rotate about the footprint centre

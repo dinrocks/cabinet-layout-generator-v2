@@ -163,3 +163,60 @@ never loses a part. Tested in `persist.test.ts`.
 | 8 | Guide/README refresh · `App.tsx` split | drift | when convenient |
 
 Items 1–3 share one theme: **protect the drawings** — now the most valuable thing in the system.
+
+---
+
+# Round 2 — review date 2026-07-16 · reviewed against `main` @ `7236c2c`
+
+Everything planned has now shipped (Phases 1–3 + the drawing-output pipeline). This round
+audits the surface added since 2026-07-02: **anonymous share links**, the **public-ish
+`GET /block/{id}`** endpoint, the bundle export, the SVG linework embedding, the sheet/BOM
+renderers and the App split.
+
+## R2-1. Shared SVG could execute script in a viewer's browser — ✅ FIXED (2026-07-16)
+The highest-severity finding. `svg_ref` (a part's uploaded drawing) is embedded verbatim into
+export SVGs — and share links render layouts in **anonymous visitors'** browsers. A layout JSON
+can be hand-edited and ⬆-imported, so a malicious/compromised member could plant
+`<image onload="…">` in a part and share the link: stored XSS on anyone who opens it.
+**Fix shipped:** (1) `render/embedSvg.ts` sanitizes every embed — strips `<script>`,
+`<foreignObject>`, all `on*=` handler attributes and `javascript:` hrefs (tested);
+(2) the share viewer now renders the drawing through an `<img>` data URI, an execution-free
+context by construction (defence in depth). Model *text* (tags/labels/titles) was already
+escaped everywhere (`esc()` in toSvg/page).
+
+## R2-2. Share-token design — reviewed, sound (accepted)
+- Token = 32 crypto-random bytes (base64url, 2^256) — unguessable, never listable; the RPC
+  answers only an exact match, `SECURITY DEFINER` + pinned `search_path`, `revoke … from public`,
+  and returns only that layout + the catalog items it references.
+- Anyone with the link can view until revoked (Google-Docs model — chosen deliberately);
+  revoke = clear the token, instant.
+- Any allow-listed member can share/revoke any project (matches the existing "any member can
+  edit any project" team-trust model).
+- **Residual (recorded):** a shared link can be re-fetched by bots (egress on the free tier —
+  layouts with many project-local uploads carry their `svg_ref` strings). Trigger to act:
+  Supabase egress alerts → add a tiny edge cache or move share reads behind Cloudflare caching.
+
+## R2-3. `GET /block/{id}` — reviewed, sound (accepted)
+JWT-guarded like `/export`; block ids are regex-validated (path-traversal tested in
+`test_block.py`); ids are uuid4-unguessable. Any member can fetch any block — same trust model
+as the shared catalog itself. Residual DoS/egress risk is the same class as `/upload` (already
+size-capped) — free-tier alarms are the trigger.
+
+## R2-4. Linework embedding: size/perf on big sets (recorded)
+Each set member duplicates the part's SVG string — a 100-terminal strip with a detailed drawing
+makes exports several MB and svg2pdf slower. Correct but heavy. **Trigger:** a real export
+feels slow / a PDF balloons → switch the embed to one `<defs>` definition + `<use>` per
+placement (svg2pdf supports `<use>`), which also shrinks SVG downloads.
+
+## R2-5. Monochrome mapping edge (recorded)
+`embedSvg` recolours hex colours (attr + CSS forms). ezdxf emits hex today; if a future ezdxf
+emits `rgb()`/named colours they'd pass through coloured (cosmetic only). One regex each if it
+ever shows up.
+
+## R2-6. What was checked and found already safe
+- Crash-draft localStorage writes are fully try/catch-guarded (quota overflow can't loop-crash).
+- Bundle export fails loudly on a missing block; never ships an incomplete ZIP.
+- The App split was pure movement (browser-smoke-tested), and the hook captures fresh state per
+  render exactly as the inline code did.
+- Sheet/BOM/cap-height renderers are pure + tested; the em↔cap conversion is asserted in CI.
+- `jszip` (MIT, ubiquitous) is the only new runtime dependency; pinned via package-lock.

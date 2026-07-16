@@ -71,11 +71,16 @@ export default function ShareViewer({ token }: { token: string }) {
           <button type="button" disabled={busy} onClick={() => run(() => downloadBomPdf(model, library, paper))}>BOM PDF</button>
         </span>
       </header>
-      <div
-        style={{ background: "#fff", border: "1px solid #e4e7ec", borderRadius: 8, padding: 12, overflow: "auto" }}
-        // the same deterministic renderer as the editor/exports — nothing re-drawn
-        dangerouslySetInnerHTML={{ __html: renderToSvg(model, library, { unitsPerMm: 1 }).replace("<svg ", `<svg style="width:100%;height:auto" `) }}
-      />
+      <div style={{ background: "#fff", border: "1px solid #e4e7ec", borderRadius: 8, padding: 12, overflow: "auto" }}>
+        {/* same deterministic renderer as the editor/exports; shown via an <img>
+            data URI so shared content can never execute anything in this page
+            (defence in depth on top of embedSvg's sanitizer) */}
+        <img
+          style={{ width: "100%", height: "auto", display: "block" }}
+          alt={`Layout drawing: ${name || "Untitled"}`}
+          src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToSvg(model, library, { unitsPerMm: 1 }))}`}
+        />
+      </div>
       <p style={{ color: "#6b7280", fontSize: 13 }}>
         Shared from Cabinet Layout Generator — this link always shows the latest saved version.
       </p>

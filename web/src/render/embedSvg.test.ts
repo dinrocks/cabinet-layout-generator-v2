@@ -49,6 +49,24 @@ describe("embedPartSvg", () => {
     expect(g).not.toMatch(/class="C\d"/);
   });
 
+  it("strips executable content — shared layouts render in anonymous browsers", () => {
+    const evil = `<svg viewBox="0 0 100 100">` +
+      `<script>alert(1)</script>` +
+      `<image href="x" onload="alert(2)" width="10" height="10"/>` +
+      `<circle cx="5" cy="5" r="2" onclick='alert(3)'/>` +
+      `<foreignObject><body onload="alert(4)"></body></foreignObject>` +
+      `<a href="javascript:alert(5)"><rect width="9" height="9"/></a>` +
+      `<a xlink:href=" javascript:alert(6)"><path d="M0 0"/></a></svg>`;
+    const g = embedPartSvg(evil, "s-", box, 0, 45, 70)!;
+    expect(g).not.toContain("<script");
+    expect(g).not.toContain("onload");
+    expect(g).not.toContain("onclick");
+    expect(g).not.toContain("foreignObject");
+    expect(g).not.toContain("javascript:");
+    expect(g).toContain("<circle");     // the geometry itself survives
+    expect(g).toContain("<rect");
+  });
+
   it("returns null on garbage (caller keeps the plain rectangle)", () => {
     expect(embedPartSvg("<svg>no viewbox</svg>", "n", box, 0, 0, 0)).toBeNull();
     expect(embedPartSvg("not svg at all", "n", box, 0, 0, 0)).toBeNull();
