@@ -45,10 +45,15 @@ interface Fit {
   scale: number;
 }
 
-/** The sheet's usable draw area for a given page size (mirrors sheetSpec). */
+/** The sheet's usable draw area for a given page size (mirrors sheetSpec: the
+ *  measured A3 template scales proportionally; the ≥10mm pad stays real mm). */
 function drawAreaDims(pageW: number, pageH: number): { w: number; h: number } {
-  const off = SHEET.outer_mm + SHEET.zone_mm + SHEET.pad_mm;
-  return { w: pageW - 2 * off, h: pageH - 2 * off - SHEET.band_mm };
+  const kx = pageW / 420;
+  const ky = pageH / 297;
+  return {
+    w: pageW - 2 * SHEET.margin_x_mm * kx - 2 * SHEET.pad_mm,
+    h: pageH - (SHEET.margin_top_mm + SHEET.band_mm) * ky - 2 * SHEET.pad_mm,
+  };
 }
 
 /** Sheets are ALWAYS landscape — the house drawing style (engineer, 2026-07-06).

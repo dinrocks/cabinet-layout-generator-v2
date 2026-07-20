@@ -42,10 +42,27 @@ LAYERS = {
 TEXT_STYLE = "ARIAL"
 
 # ── drawing-sheet template (paper mm) — MUST match web/src/model/sheet.ts ──
-SHEET_OUTER_MM = 5.0
-SHEET_ZONE_MM = 7.0
-SHEET_BAND_MM = 30.0
-SHEET_PAD_MM = 10.0  # min gap between the drawing and the frame/band (engineer: ≥10mm)
+# Measured 1:1 from the engineer's real Template.dxf (2026-07-20), normalized to
+# A3 landscape. All text heights are CAD CAP heights (DXF's native unit) and are
+# used directly here; the web renderer converts them to em for SVG.
+SHEET_MARGIN_X = 4.99    # inner frame offset from the paper edge (sides)
+SHEET_MARGIN_TOP = 4.83  # inner frame offset from the paper top
+SHEET_BAND_MM = 28.51    # title band below the inner frame, down to the paper edge
+SHEET_PAD_MM = 10.0      # min gap between the drawing and the frame/band (≥10mm)
+SHEET_COL_TICKS = [42.8, 84.6, 126.4, 168.2, 210.0, 251.8, 293.6, 335.4, 377.2]
+SHEET_ROW_TICKS = [49.15, 93.36, 137.57, 181.78, 225.99]
+SHEET_ZONE_H = 2.56
+# title band (A3 y coords): tables/cells as measured
+BAND_Y = 268.49
+REF_SPLIT, REF_X2 = 42.79, 111.29
+REMARK_X1 = 111.29
+REV_COLS = [187.09, 192.5, 202.86, 258.34, 263.87, 269.4, 274.93, 283.27]
+BAND_ROW_YS = [272.48, 275.94, 279.4, 282.86, 286.31, 289.77, 293.22]
+DESIGNER_X1, DESIGNER_X2, DESIGNER_Y2 = 283.27, 343.99, 288.57
+CLIENT_SPLIT_Y = 278.62
+STRIP_Y1, STRIP_LABEL_Y = 288.57, 291.03
+STRIP_COLS = [283.27, 313.63, 343.99, 395.82, 413.09, 420.0]
+H_LABEL, H_REVVAL, H_TITLE, H_TITLE2, H_CELLVAL, H_SHEETVAL = 1.28, 1.02, 1.88, 1.65, 2.13, 1.88
 # standard plot scales 1:N — the smallest N that fits the draw area is chosen
 STD_SCALES = [1, 2, 2.5, 5, 10, 15, 20, 25, 50, 100]
 
@@ -460,12 +477,15 @@ class DxfAssembler:
 
     @staticmethod
     def _draw_area(paper_w: float, paper_h: float) -> tuple[float, float, float, float]:
-        """Usable draw area (x, y, w, h) in top-left mm, inside the frame and above
-        the title band, with the ≥10mm pad. Matches page.ts drawAreaDims + sheet.ts."""
-        i = SHEET_OUTER_MM + SHEET_ZONE_MM
-        in_w, in_h = paper_w - 2 * i, paper_h - 2 * i
-        return (i + SHEET_PAD_MM, i + SHEET_PAD_MM,
-                in_w - 2 * SHEET_PAD_MM, in_h - SHEET_BAND_MM - 2 * SHEET_PAD_MM)
+        """Usable draw area (x, y, w, h) in top-left mm: inside the inner frame
+        (whose bottom IS the band top), with the ≥10mm pad. Matches page.ts
+        drawAreaDims + sheet.ts (measured template, scaled proportionally)."""
+        kx, ky = paper_w / 420.0, paper_h / 297.0
+        x = SHEET_MARGIN_X * kx + SHEET_PAD_MM
+        y = SHEET_MARGIN_TOP * ky + SHEET_PAD_MM
+        w = paper_w - 2 * SHEET_MARGIN_X * kx - 2 * SHEET_PAD_MM
+        h = paper_h - (SHEET_MARGIN_TOP + SHEET_BAND_MM) * ky - 2 * SHEET_PAD_MM
+        return (x, y, w, h)
 
     def _sheet_chrome(self, layout: Any, paper_w: float, paper_h: float, scale_txt: str):
         """Draw the AMR frame + zone grid + bottom title band on `layout` at true
@@ -484,21 +504,33 @@ class DxfAssembler:
             line(x, y, x + w, y); line(x, y + h, x + w, y + h)
             line(x, y, x, y + h); line(x + w, y, x + w, y + h)
 
+        kx, ky = paper_w / 420.0, paper_h / 297.0  # the measured template is A3
+
         def text(s: str, x: float, y_base: float, h: float, anchor: str) -> None:
             if not s:
                 return
             align = (ezdxf.enums.TextEntityAlignment.BOTTOM_CENTER if anchor == "middle"
                      else ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT)
-            # h is an EM-size spec (matching the SVG/PDF renderer); DXF height = cap
-            # height, so convert — see ARIAL_CAP_PER_EM.
+            # h is a CAP height (the template's measured DXF unit) — used directly.
             t = layout.add_text(s, dxfattribs={"layer": "SHEET",
-                                               "height": h * ARIAL_CAP_PER_EM,
+                                               "height": h,
                                                "style": TEXT_STYLE})
             t.set_placement((x, fy(y_base)), align=align)
 
-        def label(x: float, y: float, s: str, h: float = 2.0) -> None:
-            text(s, x + 1, y + h + 0.8, h, "start")
+        # template-space helpers: coordinates in measured-A3 mm, scaled to the page
+        def tline(x1: float, y1: float, x2: float, y2: float) -> None:
+            line(x1 * kx, y1 * ky, x2 * kx, y2 * ky)
 
+        def ttext(s: str, x: float, y_base: float, h: float, anchor: str) -> None:
+            text(s, x * kx, y_base * ky, h * ky, anchor)
+
+        def tlabel(x: float, y: float, s: str) -> None:  # box top-left corner label
+            ttext(s, x + 0.6, y + 2.12, H_LABEL, "start")
+
+        def tcenter(x1: float, x2: float, y_base: float, s: str, h: float) -> None:
+            ttext(s, (x1 + x2) / 2, y_base, h, "middle")
+
+        # paper-space center-in-box (kept for the BOM table caller; h = CAP height)
         def center(x: float, y: float, w: float, h_box: float, s: str, h: float = 3.0) -> None:
             text(s, x + w / 2, y + h_box / 2 + h * 0.35, h, "middle")
 
@@ -506,101 +538,68 @@ class DxfAssembler:
         g = lambda k: str(p.get(k) or "")          # blank when unset (never invented)
         dash = lambda k: str(p.get(k) or "-")
 
-        # frame + zone grid: numbers along the TOP only, letters down the LEFT only
-        # (engineer, 2026-07-08); the other two edges keep just the ticks.
-        o = SHEET_OUTER_MM
-        i = o + SHEET_ZONE_MM
-        in_x, in_y = i, i
-        in_w, in_h = paper_w - 2 * i, paper_h - 2 * i
-        rect(o, o, paper_w - 2 * o, paper_h - 2 * o)
-        rect(in_x, in_y, in_w, in_h)
-        cols = max(4, round(in_w / 40))
-        rows = max(3, round(in_h / 45))
-        col_w = in_w / cols
-        for c in range(cols + 1):
-            x = in_x + c * col_w
-            line(x, o, x, in_y); line(x, in_y + in_h, x, paper_h - o)
-            if c < cols:
-                text(str(c + 1), in_x + (c + 0.5) * col_w, (o + in_y) / 2 + 1.2, 3.2, "middle")
-        row_h = in_h / rows
-        for r in range(rows + 1):
-            y = in_y + r * row_h
-            line(o, y, in_x, y); line(in_x + in_w, y, paper_w - o, y)
-            if r < rows:
-                text(chr(65 + r), (o + in_x) / 2, in_y + (r + 0.5) * row_h + 1.2, 3.2, "middle")
+        # ── paper edge + inner frame (band sits below the frame, to the edge) ──
+        rect(0, 0, paper_w, paper_h)
+        tline(SHEET_MARGIN_X, SHEET_MARGIN_TOP, 415.01, SHEET_MARGIN_TOP)
+        tline(SHEET_MARGIN_X, BAND_Y, 415.01, BAND_Y)
+        tline(SHEET_MARGIN_X, SHEET_MARGIN_TOP, SHEET_MARGIN_X, BAND_Y)
+        tline(415.01, SHEET_MARGIN_TOP, 415.01, BAND_Y)
 
-        # bottom title band — sections: ref-drawings | remark | rev history | initials | title block
-        band_y = in_y + in_h - SHEET_BAND_MM
-        line(in_x, band_y, in_x + in_w, band_y)
-        widths = [f * in_w for f in (0.30, 0.12, 0.20, 0.08, 0.30)]
-        xs = [in_x]
-        for w in widths[:-1]:
-            xs.append(xs[-1] + w)
-        for x in xs[1:]:
-            line(x, band_y, x, band_y + SHEET_BAND_MM)
+        # ── zone grid: numbers 1..10 top only; letters A..F on BOTH sides ─────
+        for x in SHEET_COL_TICKS:
+            tline(x, 0, x, SHEET_MARGIN_TOP)
+        col_edges = [0.0, *SHEET_COL_TICKS, 420.0]
+        for c in range(10):
+            tcenter(col_edges[c], col_edges[c + 1], 3.72, str(c + 1), SHEET_ZONE_H)
+        for y in SHEET_ROW_TICKS:
+            tline(0, y, SHEET_MARGIN_X, y)
+            tline(415.01, y, 420, y)
+        row_edges = [SHEET_MARGIN_TOP, *SHEET_ROW_TICKS, BAND_Y]
+        for r in range(6):
+            y_base = (row_edges[r] + row_edges[r + 1]) / 2 + SHEET_ZONE_H * 0.45
+            ttext(chr(65 + r), SHEET_MARGIN_X / 2, y_base, SHEET_ZONE_H, "middle")
+            ttext(chr(65 + r), (415.01 + 420) / 2, y_base, SHEET_ZONE_H, "middle")
 
-        # [0] reference-drawings table
-        s0x, s0w = xs[0], widths[0]
-        for r in range(1, int(SHEET_BAND_MM / 5)):
-            line(s0x, band_y + r * 5, s0x + s0w, band_y + r * 5)
-        split = s0x + 0.42 * s0w
-        line(split, band_y, split, band_y + SHEET_BAND_MM)
-        center(s0x, band_y + SHEET_BAND_MM - 5, 0.42 * s0w, 5, "REFERENCE DRAWING NO.", 2.2)
-        center(split, band_y + SHEET_BAND_MM - 5, s0w - 0.42 * s0w, 5, "DESCRIPTION", 2.2)
-        # [1] remark
-        label(xs[1], band_y, "REMARK")
-        # [2] revision history (header at the bottom; newest row above it)
-        s2x, s2w = xs[2], widths[2]
-        for r in range(1, int(SHEET_BAND_MM / 5)):
-            line(s2x, band_y + r * 5, s2x + s2w, band_y + r * 5)
-        cw = [0.15 * s2w, 0.25 * s2w, 0.60 * s2w]
-        line(s2x + cw[0], band_y, s2x + cw[0], band_y + SHEET_BAND_MM)
-        line(s2x + cw[0] + cw[1], band_y, s2x + cw[0] + cw[1], band_y + SHEET_BAND_MM)
-        hy = band_y + SHEET_BAND_MM - 5
-        center(s2x, hy, cw[0], 5, "REV.", 2.2)
-        center(s2x + cw[0], hy, cw[1], 5, "DATE", 2.2)
-        center(s2x + cw[0] + cw[1], hy, cw[2], 5, "DESCRIPTION", 2.2)
-        center(s2x, hy - 5, cw[0], 5, g("rev"), 2.4)
-        center(s2x + cw[0], hy - 5, cw[1], 5, g("date"), 2.4)
-        center(s2x + cw[0] + cw[1], hy - 5, cw[2], 5, g("rev_desc"), 2.4)
-        # [3] initials
-        s3x, s3w = xs[3], widths[3]
-        line(s3x, band_y + SHEET_BAND_MM - 10, s3x + s3w, band_y + SHEET_BAND_MM - 10)
-        line(s3x, band_y + SHEET_BAND_MM - 5, s3x + s3w, band_y + SHEET_BAND_MM - 5)
-        for c, (lab, key) in enumerate((("BY", "by"), ("CHK", "chk"), ("ENG", "eng"), ("APPR", "appr"))):
-            cx = s3x + c * s3w / 4
-            if c:
-                line(cx, band_y + SHEET_BAND_MM - 10, cx, band_y + SHEET_BAND_MM)
-            center(cx, band_y + SHEET_BAND_MM - 5, s3w / 4, 5, lab, 2.0)
-            center(cx, band_y + SHEET_BAND_MM - 10, s3w / 4, 5, dash(key), 2.2)
-        # [4] designer / client / title + the SCALE·PROJECT·DRAWING·SHEET·REV cells
-        s4x, s4w = xs[4], widths[4]
-        row_y = band_y + SHEET_BAND_MM - 9
-        line(s4x, row_y, s4x + s4w, row_y)
-        des_w = 0.38 * s4w
-        line(s4x + des_w, band_y, s4x + des_w, row_y)
-        label(s4x, band_y, "DESIGNER:")
-        center(s4x, band_y + 4, des_w, 17, g("designer"), 2.6)
-        cli_y = band_y + 10
-        line(s4x + des_w, cli_y, s4x + s4w, cli_y)
-        label(s4x + des_w, band_y, "CLIENT:")
-        center(s4x + des_w, band_y + 2.5, s4w - des_w, 7.5, g("client"), 2.6)
-        label(s4x + des_w, cli_y, "TITLE:")
-        tb_x, tb_w = s4x + des_w, s4w - des_w
-        text(g("name"), tb_x + tb_w / 2, cli_y + 2 + 4.0, 3.4, "middle")
-        text(g("title2"), tb_x + tb_w / 2, cli_y + 2 + 8.0, 2.8, "middle")
-
-        cell_f = [0.14, 0.22, 0.34, 0.18, 0.12]
-        cell_labels = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."]
-        cell_values = [scale_txt, g("project_no"), g("drawing_no"), g("sheet_no"), dash("rev")]
-        cx = s4x
+        # ── title band (full width, y BAND_Y → paper bottom) ──────────────────
+        tline(0, BAND_Y, 420, BAND_Y)
+        for x in [REF_SPLIT, REF_X2, *REV_COLS, DESIGNER_X2]:
+            tline(x, BAND_Y, x, 297)
+        # ref + rev tables share the 8 rows
+        for y in BAND_ROW_YS:
+            tline(0, y, REF_X2, y)
+            tline(REV_COLS[0], y, REV_COLS[-1], y)
+        tcenter(0, REF_SPLIT, 295.6, "REFERENCE DRAWING NO.", H_LABEL)
+        tcenter(REF_SPLIT, REF_X2, 295.6, "DESCRIPTION", H_LABEL)
+        tlabel(REMARK_X1, BAND_Y + 0.9, "REMARK")
+        # revision table: headers on the bottom row; newest revision fills the row above
+        rev_head = ["REV.", "DATE", "DESCRIPTION", "BY", "CHK", "ENG", "APPR"]
+        rev_vals = [g("rev"), g("date"), g("rev_desc"), dash("by"), dash("chk"), dash("eng"), dash("appr")]
+        for c in range(7):
+            tcenter(REV_COLS[c], REV_COLS[c + 1], 295.56, rev_head[c], H_LABEL)
+            if c == 2:
+                ttext(rev_vals[c], REV_COLS[c] + 1.9, 292.01, H_REVVAL, "start")  # description: left-aligned
+            else:
+                tcenter(REV_COLS[c], REV_COLS[c + 1], 292.01, rev_vals[c], H_REVVAL)
+        # designer / client / title
+        tlabel(DESIGNER_X1, BAND_Y, "DESIGNER:")
+        tcenter(DESIGNER_X1, DESIGNER_X2, 280, g("designer"), H_TITLE2)
+        tline(DESIGNER_X2, CLIENT_SPLIT_Y, 420, CLIENT_SPLIT_Y)
+        tline(DESIGNER_X1, DESIGNER_Y2, 420, DESIGNER_Y2)
+        tlabel(DESIGNER_X2, BAND_Y, "CLIENT:")
+        tcenter(DESIGNER_X2, 420, 275.5, g("client"), H_TITLE2)
+        tlabel(DESIGNER_X2, CLIENT_SPLIT_Y, "TITLE:")
+        tcenter(DESIGNER_X2, 420, 282.94, g("name"), H_TITLE)
+        tcenter(DESIGNER_X2, 420, 286.21, g("title2"), H_TITLE2)
+        # bottom strip: SCALE · PROJECT NO. · DRAWING NO. · SHEET · REV.
+        tline(STRIP_COLS[0], STRIP_LABEL_Y, 420, STRIP_LABEL_Y)
+        strip_head = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."]
+        strip_vals = [scale_txt, g("project_no"), g("drawing_no"), g("sheet_no"), dash("rev")]
+        strip_val_h = [H_CELLVAL, H_CELLVAL, H_CELLVAL, H_SHEETVAL, H_CELLVAL]
         for c in range(5):
-            w = cell_f[c] * s4w
             if c:
-                line(cx, row_y, cx, row_y + 9)
-            label(cx, row_y, cell_labels[c], 1.8)
-            center(cx, row_y + 2.5, w, 6.5, cell_values[c], 2.8)
-            cx += w
+                tline(STRIP_COLS[c], STRIP_Y1, STRIP_COLS[c], 297)
+            tcenter(STRIP_COLS[c], STRIP_COLS[c + 1], 290.43, strip_head[c], H_LABEL)
+            tcenter(STRIP_COLS[c], STRIP_COLS[c + 1], 294.73, strip_vals[c], strip_val_h[c])
 
         return fy, line, text, center
 
@@ -684,12 +683,12 @@ class DxfAssembler:
             _fy, line, text, center = self._sheet_chrome(layout, paper_w, paper_h, "-")
 
             # heading — just the title (no page counter, even across "BOM 1".."BOM N")
-            text(BOM_HEADING, draw_x + draw_w / 2, draw_y + 6, 4.5, "middle")
+            text(BOM_HEADING, draw_x + draw_w / 2, draw_y + 6, 4.5 * ARIAL_CAP_PER_EM, "middle")  # em-spec -> cap
 
             # header row
             ry = table_top
             for c, head in enumerate(BOM_COL_HEAD):
-                center(col_x[c], ry, col_w[c], BOM_HEAD_H, head, BOM_HEAD_FONT)
+                center(col_x[c], ry, col_w[c], BOM_HEAD_H, head, BOM_HEAD_FONT * ARIAL_CAP_PER_EM)
             ry += BOM_HEAD_H
             line(col_x[0], table_top + BOM_HEAD_H, col_x[5], table_top + BOM_HEAD_H)
 
@@ -702,9 +701,9 @@ class DxfAssembler:
                     for s in lines_c:
                         if s:
                             if BOM_COL_CENTER[c]:
-                                text(s, col_x[c] + col_w[c] / 2, base, BOM_FONT, "middle")
+                                text(s, col_x[c] + col_w[c] / 2, base, BOM_FONT * ARIAL_CAP_PER_EM, "middle")
                             else:
-                                text(s, col_x[c] + 1.5, base, BOM_FONT, "start")
+                                text(s, col_x[c] + 1.5, base, BOM_FONT * ARIAL_CAP_PER_EM, "start")
                         base += BOM_LINE_H
                 ry += h
                 line(col_x[0], ry, col_x[5], ry)

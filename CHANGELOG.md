@@ -65,6 +65,19 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
   (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
 
+### Changed — drawing sheet now matches the company template 1:1 (measured)
+- The engineer provided the real **Template.dxf**; the sheet spec is now **measured, not estimated**
+  (every line and text height extracted from the DXF, normalized to A3): inner frame at 4.99/4.83 mm
+  from the paper edge, title band 28.51 mm running below the frame **to the paper edge**, zone numbers
+  1–10 top / letters A–F on **both** sides, the 8-row REFERENCE + REVISION tables with
+  **BY/CHK/ENG/APPR as columns in each revision row** (the separate initials block is gone — those
+  fields now print into the newest revision line), DESIGNER/CLIENT/TITLE boxes and the
+  SCALE·PROJECT·DRAWING·SHEET·REV strip at their exact measured positions.
+- Text sizes are the template's true CAD cap heights (labels 1.28 mm, values 2.13 mm, zones 2.56 mm):
+  the DXF layout tabs use them natively; the PDF/PNG renderer converts cap→em so print size is
+  identical. Locked by per-dimension unit tests; identical in `sheet.ts` and `dxf_build.py`.
+  (The template DXF itself stays out of the public repo — only the measured numbers ship.)
+
 ### Fixed — PDF/PNG export froze the browser on large real projects (R2-4)
 - A real 750×1060 layout (~300 placed devices) crashed the browser on PDF export: every placement
   embedded a **full copy** of its part's drawing, making a multi-megabyte SVG that svg2pdf parsed on

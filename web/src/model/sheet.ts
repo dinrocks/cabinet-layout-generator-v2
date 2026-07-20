@@ -1,22 +1,31 @@
 /**
  * Drawing-sheet spec (pure): frame + zone grid + the AMR title band, in paper mm,
- * top-left coordinates. Reproduces the engineer's real sheet template (screenshots,
- * 2026-07-06): zone columns 1..N / rows A.. on all four edges, and a bottom band of
- *   [ REFERENCE DRAWING NO. | DESCRIPTION table ] [ REMARK ] [ REV/DATE/DESCRIPTION
- *   history ] [ BY/CHK/ENG/APPR initials ] [ DESIGNER | CLIENT / TITLE | SCALE ·
- *   PROJECT NO. · DRAWING NO. · SHEET · REV. ]
- * Cell sizes are estimated from the screenshots (mm not given) — tune the constants.
+ * top-left coordinates. Measured 1:1 from the engineer's REAL template
+ * (Template.dxf, 2026-07-20) — every line and text height below is the actual
+ * company sheet, normalized to A3 landscape (the ticks/cells scale
+ * proportionally for other paper sizes; the house set is A3).
  *
- * Consumed by render/page.ts (SVG → PDF/PNG); service/dxf_build.py mirrors the same
- * arithmetic for the DXF paper-space layout — keep them in sync.
+ * Real structure (differs from the earlier screenshot-estimated sheet):
+ *   - outer rect = the PAPER EDGE; inner frame ~5mm in (x 4.99, y 4.83);
+ *   - the title band (28.51mm) sits BELOW the inner frame, full width, down to
+ *     the paper edge;
+ *   - zone numbers 1..10 top only; letters A..F on BOTH sides;
+ *   - the revision table carries BY/CHK/ENG/APPR as columns per revision row
+ *     (no separate initials section);
+ *   - [ REFERENCE DRAWING NO. | DESCRIPTION ]  [ REMARK ]  [ REV|DATE|DESC|
+ *     BY|CHK|ENG|APPR ]  [ DESIGNER | CLIENT / TITLE ]  [ SCALE · PROJECT NO. ·
+ *     DRAWING NO. · SHEET · REV. ].
+ *
+ * Consumed by render/page.ts (SVG → PDF/PNG); service/dxf_build.py mirrors the
+ * same arithmetic for the DXF paper-space layouts — keep them in sync.
  */
 import type { ProjectMeta } from "./types";
 
 export const SHEET = {
-  outer_mm: 5,   // outer border offset from the paper edge
-  zone_mm: 7,    // zone-tick band between outer and inner border
-  band_mm: 30,   // title-band height (inside the inner border, at the bottom)
-  pad_mm: 10,    // min gap between the drawing and the frame/band (engineer: ≥10mm)
+  margin_x_mm: 4.99, // inner frame offset from the paper edge (sides)
+  margin_top_mm: 4.83, // inner frame offset from the paper top
+  band_mm: 28.51, // title-band height (below the inner frame, to the paper edge)
+  pad_mm: 10, // min gap between the drawing and the frame/band (engineer: ≥10mm)
 } as const;
 
 export interface SheetLine { x1: number; y1: number; x2: number; y2: number; w: number }
@@ -39,144 +48,132 @@ export interface SheetSpec {
 const dash = (s: string | undefined) => (s && s.trim() ? s : "-");
 const blank = (s: string | undefined) => (s && s.trim() ? s : "");
 
-/** Zone counts scale with the sheet (A3 landscape → 10 × 6, like the template). */
-export function zoneCounts(innerW: number, innerH: number): { cols: number; rows: number } {
-  return { cols: Math.max(4, Math.round(innerW / 40)), rows: Math.max(3, Math.round(innerH / 45)) };
+/** The template's zone grid is fixed 10 × 6 (scaled to the paper). */
+export function zoneCounts(_innerW?: number, _innerH?: number): { cols: number; rows: number } {
+  return { cols: 10, rows: 6 };
 }
 
+// ── the measured A3 template (mm; top-left origin) ───────────────────────────
+const A3W = 420, A3H = 297;
+const INNER = { x1: 4.99, y1: 4.83, x2: 415.01, y2: 268.49 }; // frame; band below
+/** zone column tick Xs (top margin band) — edge columns are 1mm wider */
+const COL_TICKS = [42.8, 84.6, 126.4, 168.2, 210.0, 251.8, 293.6, 335.4, 377.2];
+/** zone row tick Ys (left AND right margin bands) */
+const ROW_TICKS = [49.15, 93.36, 137.57, 181.78, 225.99];
+const ZONE_H = 2.56; // zone letter/number text height
+
+// title band (y 268.49 → 297)
+const BAND_Y = 268.49;
+/** ref-drawings table: x 0→111.29, split at 42.79; shares row lines with the rev table */
+const REF = { x1: 0, split: 42.79, x2: 111.29 };
+/** remark box: x 111.29→187.09 (no subdivisions) */
+const REMARK = { x1: 111.29, x2: 187.09 };
+/** revision table column edges: REV|DATE|DESCRIPTION|BY|CHK|ENG|APPR */
+const REV_COLS = [187.09, 192.5, 202.86, 258.34, 263.87, 269.4, 274.93, 283.27];
+/** the 7 interior row lines shared by the ref + rev tables (8 rows, ~3.46mm) */
+const ROW_YS = [272.48, 275.94, 279.4, 282.86, 286.31, 289.77, 293.22];
+const DESIGNER = { x1: 283.27, x2: 343.99, y2: 288.57 };
+const CLIENT_SPLIT_Y = 278.62; // client above, title below (x 343.99→420)
+/** bottom-right strip (y 288.57→297): SCALE|PROJECT NO.|DRAWING NO.|SHEET|REV. */
+const STRIP = { y1: 288.57, labelY: 291.03, cols: [283.27, 313.63, 343.99, 395.82, 413.09, 420] };
+// text heights (measured from the DXF = CAD CAP heights)
+const H_LABEL = 1.28, H_REVVAL = 1.02, H_TITLE = 1.88, H_TITLE2 = 1.65, H_CELLVAL = 2.13, H_SHEETVAL = 1.88;
+/** Measured heights are CAP heights (the DXF unit); SVG font-size is EM size.
+ *  Arial caps ≈ 0.716 em, so SVG emits h/0.716 to print caps at the true size.
+ *  (dxf_build.py uses the measured cap heights directly — DXF's native unit.) */
+const CAP_TO_EM = 1 / 0.716;
+
 export function sheetSpec(pageW: number, pageH: number, p: ProjectMeta, scaleText: string): SheetSpec {
+  // everything is specced on the measured A3 sheet, scaled proportionally
+  const kx = pageW / A3W;
+  const ky = pageH / A3H;
   const L: SheetLine[] = [];
   const T: SheetText[] = [];
-  const line = (x1: number, y1: number, x2: number, y2: number, w = 0.25) => L.push({ x1, y1, x2, y2, w });
-  const rect = (r: Rect, w = 0.25) => {
-    line(r.x, r.y, r.x + r.w, r.y, w); line(r.x, r.y + r.h, r.x + r.w, r.y + r.h, w);
-    line(r.x, r.y, r.x, r.y + r.h, w); line(r.x + r.w, r.y, r.x + r.w, r.y + r.h, w);
+  const line = (x1: number, y1: number, x2: number, y2: number, w = 0.25) =>
+    L.push({ x1: x1 * kx, y1: y1 * ky, x2: x2 * kx, y2: y2 * ky, w });
+  const text = (s: string, x: number, yBase: number, h: number, anchor: "start" | "middle") => {
+    if (s) T.push({ x: x * kx, y: yBase * ky, text: s, h: h * CAP_TO_EM * ky, anchor });
   };
-  const label = (r: Rect, text: string, h = 2.0) => T.push({ x: r.x + 1, y: r.y + h + 0.8, text, h, anchor: "start" });
-  const center = (r: Rect, text: string, h = 3.0) => {
-    if (text) T.push({ x: r.x + r.w / 2, y: r.y + r.h / 2 + h * 0.35, text, h, anchor: "middle" });
+  /** label in a box's top-left corner (measured inset ≈0.6 right, 2.1 down) */
+  const label = (x: number, y: number, s: string) => text(s, x + 0.6, y + 2.12, H_LABEL, "start");
+  /** centered in a horizontal span at a baseline */
+  const center = (x1: number, x2: number, yBase: number, s: string, h: number) =>
+    text(s, (x1 + x2) / 2, yBase, h, "middle");
+
+  // ── paper edge + inner frame ───────────────────────────────────────────────
+  line(0, 0, A3W, 0, 0.5); line(0, A3H, A3W, A3H, 0.5);
+  line(0, 0, 0, A3H, 0.5); line(A3W, 0, A3W, A3H, 0.5);
+  line(INNER.x1, INNER.y1, INNER.x2, INNER.y1, 0.7);
+  line(INNER.x1, INNER.y2, INNER.x2, INNER.y2, 0.7);
+  line(INNER.x1, INNER.y1, INNER.x1, INNER.y2, 0.7);
+  line(INNER.x2, INNER.y1, INNER.x2, INNER.y2, 0.7);
+
+  // ── zone grid: numbers 1..10 top only; letters A..F on BOTH sides ─────────
+  for (const x of COL_TICKS) line(x, 0, x, INNER.y1);
+  const colEdges = [0, ...COL_TICKS, A3W];
+  for (let c = 0; c < 10; c += 1) {
+    center(colEdges[c], colEdges[c + 1], 3.72, String(c + 1), ZONE_H);
+  }
+  for (const y of ROW_TICKS) { line(0, y, INNER.x1, y); line(INNER.x2, y, A3W, y); }
+  const rowEdges = [INNER.y1, ...ROW_TICKS, INNER.y2];
+  for (let r = 0; r < 6; r += 1) {
+    const yBase = (rowEdges[r] + rowEdges[r + 1]) / 2 + ZONE_H * 0.45;
+    const letter = String.fromCharCode(65 + r); // A..F, top→bottom
+    text(letter, INNER.x1 / 2, yBase, ZONE_H, "middle");
+    text(letter, (INNER.x2 + A3W) / 2, yBase, ZONE_H, "middle");
+  }
+
+  // ── title band ─────────────────────────────────────────────────────────────
+  line(0, BAND_Y, A3W, BAND_Y, 0.7); // band top spans the full paper width
+  // section verticals (full band height)
+  for (const x of [REF.split, REF.x2, ...REV_COLS.slice(0, -1), REV_COLS[REV_COLS.length - 1], DESIGNER.x2]) {
+    line(x, BAND_Y, x, A3H, 0.35);
+  }
+  // ref + rev tables share the 8 rows
+  for (const y of ROW_YS) { line(REF.x1, y, REF.x2, y, 0.18); line(REV_COLS[0], y, REV_COLS[REV_COLS.length - 1], y, 0.18); }
+  // [ref table] headers on the bottom row
+  center(REF.x1, REF.split, 295.6, "REFERENCE DRAWING NO.", H_LABEL);
+  center(REF.split, REF.x2, 295.6, "DESCRIPTION", H_LABEL);
+  // [remark]
+  label(REMARK.x1, BAND_Y + 0.9, "REMARK");
+  // [revision table] headers on the bottom row; the newest revision fills the row above
+  const revHead = ["REV.", "DATE", "DESCRIPTION", "BY", "CHK", "ENG", "APPR"];
+  const revVals = [blank(p.rev), blank(p.date), blank(p.rev_desc), dash(p.by), dash(p.chk), dash(p.eng), dash(p.appr)];
+  for (let c = 0; c < 7; c += 1) {
+    center(REV_COLS[c], REV_COLS[c + 1], 295.56, revHead[c], H_LABEL);
+    if (c === 2) text(revVals[c], REV_COLS[c] + 1.9, 292.01, H_REVVAL, "start"); // description: left-aligned
+    else center(REV_COLS[c], REV_COLS[c + 1], 292.01, revVals[c], H_REVVAL);
+  }
+  // [designer] and [client / title]
+  label(DESIGNER.x1, BAND_Y, "DESIGNER:");
+  center(DESIGNER.x1, DESIGNER.x2, 280, blank(p.designer), H_TITLE2);
+  line(DESIGNER.x2, CLIENT_SPLIT_Y, A3W, CLIENT_SPLIT_Y, 0.35);
+  line(DESIGNER.x1, DESIGNER.y2, A3W, DESIGNER.y2, 0.35);
+  label(DESIGNER.x2, BAND_Y, "CLIENT:");
+  center(DESIGNER.x2, A3W, 275.5, blank(p.client), H_TITLE2);
+  label(DESIGNER.x2, CLIENT_SPLIT_Y, "TITLE:");
+  center(DESIGNER.x2, A3W, 282.94, blank(p.name), H_TITLE);
+  center(DESIGNER.x2, A3W, 286.21, blank(p.title2), H_TITLE2);
+  // [bottom strip] SCALE · PROJECT NO. · DRAWING NO. · SHEET · REV.
+  line(STRIP.cols[0], STRIP.labelY, A3W, STRIP.labelY, 0.18);
+  const stripHead = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."];
+  const stripVals = [scaleText, blank(p.project_no), blank(p.drawing_no), blank(p.sheet_no), dash(p.rev)];
+  const stripValH = [H_CELLVAL, H_CELLVAL, H_CELLVAL, H_SHEETVAL, H_CELLVAL];
+  for (let c = 0; c < 5; c += 1) {
+    if (c) line(STRIP.cols[c], STRIP.y1, STRIP.cols[c], A3H, 0.35);
+    center(STRIP.cols[c], STRIP.cols[c + 1], 290.43, stripHead[c], H_LABEL);
+    center(STRIP.cols[c], STRIP.cols[c + 1], 294.73, stripVals[c], stripValH[c]);
+  }
+
+  const inner: Rect = {
+    x: INNER.x1 * kx, y: INNER.y1 * ky,
+    w: (INNER.x2 - INNER.x1) * kx, h: (INNER.y2 - INNER.y1) * ky,
   };
-
-  // ── frame + zone grid ──────────────────────────────────────────────────────
-  const o = SHEET.outer_mm;
-  const outer: Rect = { x: o, y: o, w: pageW - 2 * o, h: pageH - 2 * o };
-  const i = o + SHEET.zone_mm;
-  const inner: Rect = { x: i, y: i, w: pageW - 2 * i, h: pageH - 2 * i };
-  rect(outer, 0.7);
-  rect(inner, 0.5);
-
-  // Zone references (engineer, 2026-07-08): numbers along the TOP only, letters down
-  // the LEFT only — one set each is enough; the other two edges keep just the ticks.
-  const { cols, rows } = zoneCounts(inner.w, inner.h);
-  const colW = inner.w / cols;
-  for (let c = 0; c <= cols; c += 1) {
-    const x = inner.x + c * colW;
-    line(x, outer.y, x, inner.y); line(x, inner.y + inner.h, x, outer.y + outer.h); // ticks top+bottom
-    if (c < cols) {
-      const cx = inner.x + (c + 0.5) * colW;
-      T.push({ x: cx, y: (outer.y + inner.y) / 2 + 1.2, text: String(c + 1), h: 3.2, anchor: "middle" });
-    }
-  }
-  const rowH = inner.h / rows;
-  for (let r = 0; r <= rows; r += 1) {
-    const y = inner.y + r * rowH;
-    line(outer.x, y, inner.x, y); line(inner.x + inner.w, y, outer.x + outer.w, y); // ticks left+right
-    if (r < rows) {
-      const cy = inner.y + (r + 0.5) * rowH + 1.2;
-      T.push({ x: (outer.x + inner.x) / 2, y: cy, text: String.fromCharCode(65 + r), h: 3.2, anchor: "middle" });
-    }
-  }
-
-  // ── bottom title band ──────────────────────────────────────────────────────
-  const bandH = SHEET.band_mm;
-  const band: Rect = { x: inner.x, y: inner.y + inner.h - bandH, w: inner.w, h: bandH };
-  line(band.x, band.y, band.x + band.w, band.y, 0.5);
-
-  // section widths as fractions of the inner width (estimated from the template)
-  const secW = [0.30, 0.12, 0.20, 0.08, 0.30].map((f) => f * band.w);
-  let sx = band.x;
-  const sec: Rect[] = secW.map((w) => { const r = { x: sx, y: band.y, w, h: bandH }; sx += w; return r; });
-  for (const s of sec.slice(0, 4)) line(s.x + s.w, band.y, s.x + s.w, band.y + bandH, 0.5);
-
-  // [0] REFERENCE DRAWING NO. | DESCRIPTION — header row at the bottom, empty rows above
-  {
-    const s = sec[0];
-    const rowsN = bandH / 5; // 5mm rows
-    for (let r = 1; r < rowsN; r += 1) line(s.x, s.y + r * 5, s.x + s.w, s.y + r * 5);
-    const split = s.x + 0.42 * s.w;
-    line(split, s.y, split, s.y + s.h);
-    const head = { x: s.x, y: s.y + bandH - 5, w: 0.42 * s.w, h: 5 };
-    center(head, "REFERENCE DRAWING NO.", 2.2);
-    center({ ...head, x: split, w: s.w - head.w }, "DESCRIPTION", 2.2);
-  }
-  // [1] REMARK — one open box with the label top-left
-  label(sec[1], "REMARK");
-  // [2] revision history — REV. | DATE | DESCRIPTION header at the bottom, newest row above it
-  {
-    const s = sec[2];
-    for (let r = 1; r < bandH / 5; r += 1) line(s.x, s.y + r * 5, s.x + s.w, s.y + r * 5);
-    const cw = [0.15, 0.25, 0.60].map((f) => f * s.w);
-    line(s.x + cw[0], s.y, s.x + cw[0], s.y + s.h);
-    line(s.x + cw[0] + cw[1], s.y, s.x + cw[0] + cw[1], s.y + s.h);
-    const hy = s.y + bandH - 5;
-    center({ x: s.x, y: hy, w: cw[0], h: 5 }, "REV.", 2.2);
-    center({ x: s.x + cw[0], y: hy, w: cw[1], h: 5 }, "DATE", 2.2);
-    center({ x: s.x + cw[0] + cw[1], y: hy, w: cw[2], h: 5 }, "DESCRIPTION", 2.2);
-    const vy = hy - 5; // newest revision = the row just above the header
-    center({ x: s.x, y: vy, w: cw[0], h: 5 }, blank(p.rev), 2.4);
-    center({ x: s.x + cw[0], y: vy, w: cw[1], h: 5 }, blank(p.date), 2.4);
-    center({ x: s.x + cw[0] + cw[1], y: vy, w: cw[2], h: 5 }, blank(p.rev_desc), 2.4);
-  }
-  // [3] initials — BY | CHK | ENG | APPR labels at the bottom, values above
-  {
-    const s = sec[3];
-    const cw = s.w / 4;
-    line(s.x, s.y + bandH - 10, s.x + s.w, s.y + bandH - 10);
-    line(s.x, s.y + bandH - 5, s.x + s.w, s.y + bandH - 5);
-    const labels = ["BY", "CHK", "ENG", "APPR"];
-    const values = [p.by, p.chk, p.eng, p.appr];
-    for (let c = 0; c < 4; c += 1) {
-      if (c) line(s.x + c * cw, s.y + bandH - 10, s.x + c * cw, s.y + bandH);
-      center({ x: s.x + c * cw, y: s.y + bandH - 5, w: cw, h: 5 }, labels[c], 2.0);
-      center({ x: s.x + c * cw, y: s.y + bandH - 10, w: cw, h: 5 }, dash(values[c]), 2.2);
-    }
-  }
-  // [4] DESIGNER | CLIENT / TITLE, with SCALE · PROJECT NO. · DRAWING NO. · SHEET · REV. below
-  {
-    const s = sec[4];
-    const rowY = s.y + bandH - 9; // bottom cells row (9mm)
-    line(s.x, rowY, s.x + s.w, rowY, 0.5);
-    const desW = 0.38 * s.w;
-    line(s.x + desW, s.y, s.x + desW, rowY);
-    label({ x: s.x, y: s.y, w: desW, h: 21 }, "DESIGNER:");
-    center({ x: s.x, y: s.y + 4, w: desW, h: 17 }, blank(p.designer), 2.6);
-    const cliY = s.y + 10;
-    line(s.x + desW, cliY, s.x + s.w, cliY);
-    label({ x: s.x + desW, y: s.y, w: s.w - desW, h: 10 }, "CLIENT:");
-    center({ x: s.x + desW, y: s.y + 2.5, w: s.w - desW, h: 7.5 }, blank(p.client), 2.6);
-    label({ x: s.x + desW, y: cliY, w: s.w - desW, h: rowY - cliY }, "TITLE:");
-    const titleBox = { x: s.x + desW, y: cliY + 2, w: s.w - desW, h: rowY - cliY - 2 };
-    T.push({ x: titleBox.x + titleBox.w / 2, y: titleBox.y + 4.0, text: blank(p.name), h: 3.4, anchor: "middle" });
-    T.push({ x: titleBox.x + titleBox.w / 2, y: titleBox.y + 8.0, text: blank(p.title2), h: 2.8, anchor: "middle" });
-
-    const cellF = [0.14, 0.22, 0.34, 0.18, 0.12];
-    const cellLabels = ["SCALE", "PROJECT NO.", "DRAWING NO.", "SHEET", "REV."];
-    const cellValues = [scaleText, blank(p.project_no), blank(p.drawing_no), blank(p.sheet_no), dash(p.rev)];
-    let cx = s.x;
-    for (let c = 0; c < 5; c += 1) {
-      const cell = { x: cx, y: rowY, w: cellF[c] * s.w, h: 9 };
-      if (c) line(cell.x, rowY, cell.x, rowY + 9, 0.5);
-      label(cell, cellLabels[c], 1.8);
-      center({ ...cell, y: cell.y + 2.5, h: cell.h - 2.5 }, cellValues[c], 2.8);
-      cx += cell.w;
-    }
-  }
-
   const drawArea: Rect = {
     x: inner.x + SHEET.pad_mm,
     y: inner.y + SHEET.pad_mm,
     w: inner.w - 2 * SHEET.pad_mm,
-    h: inner.h - bandH - 2 * SHEET.pad_mm,
+    h: inner.h - 2 * SHEET.pad_mm,
   };
   return { lines: L, texts: T, inner, drawArea };
 }

@@ -49,9 +49,11 @@ Layers `PLATE / DUCT / EQUIP / TEXT / GROUND`; text style `ARIAL` (arial.ttf); b
 
 ### Typography (drawing text, mm — shared constants, keep the three renderers in sync)
 **Height semantics differ by medium:** DXF TEXT height = **CAP height** (AutoCAD/GstarCAD TrueType
-rule); SVG/PDF `font-size` = **EM size** (Arial caps ≈ 0.72 em). Paper-space sheet text is specced in
-EM terms and converted in ONE place (`ARIAL_CAP_PER_EM` in `dxf_build._sheet_chrome`) so the DXF sheet
-matches the PDF sheet. Model-space heights (below) are CAD-calibrated — no conversion.
+rule); SVG/PDF `font-size` = **EM size** (Arial caps ≈ 0.716 em). The SHEET spec (measured 1:1 from
+the engineer's Template.dxf, 2026-07-20 — kept OUT of the public repo) is in **CAP heights**: the DXF
+tabs use them natively, `sheet.ts` converts cap→em (`CAP_TO_EM`) for SVG. The BOM **table** spec stays
+in EM terms and converts em→cap at its DXF call sites (`ARIAL_CAP_PER_EM`). Model-space heights
+(below) are CAD-calibrated — no conversion.
 **Thai text:** **Arial is the sheet default**; only text runs containing Thai list "Sarabun" in their
 font-family (`render/page.ts` `THAI_RE`) and embed **Sarabun** (OFL, `web/src/assets/`, registered in
 `export/pdfFont.ts` — registered but NOT made active). So Latin-only PDFs stay pure Arial/Helvetica
