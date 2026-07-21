@@ -189,6 +189,7 @@ export async function saveProject(
     if (error) return { error: error.message };
     if (data) {
       await writeRevision(existingId, row, userId); // history, best-effort
+      await logEvent(existingId, row.name, "saved"); // audit, best-effort
       return { id: (data as { id: string }).id, updatedAt: now };
     }
     // 0 rows matched: the row either changed under us (conflict) or was deleted.
@@ -205,13 +206,61 @@ export async function saveProject(
   if (error) return { error: error.message };
   const newId = (data as { id: string }).id;
   await writeRevision(newId, row, userId); // history, best-effort
+  await logEvent(newId, row.name, "created"); // audit, best-effort
   return { id: newId, updatedAt: now };
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
   if (!supabase) return false;
+  // snapshot the name + log BEFORE the delete: the FK on-delete-set-null then nulls
+  // the event's project_id, so the delete stays auditable with the name intact.
+  const { data: cur } = await supabase.from("projects").select("name").eq("id", id).maybeSingle();
+  const name = (cur as { name: string } | null)?.name ?? "Untitled";
+  await logEvent(id, name, "deleted");
   const { error } = await supabase.from("projects").delete().eq("id", id);
   return !error;
+}
+
+// ── audit log: who did what, when (append-only project_events) ──────────────
+
+export type EventAction = "created" | "saved" | "duplicated" | "deleted" | "shared" | "unshared";
+
+export interface ProjectEvent {
+  id: string;
+  action: EventAction;
+  detail: string | null;
+  at: string;
+  actor_name: string | null;
+}
+
+/** Append one activity event — best-effort (never fails the operation it records).
+ *  The actor is resolved from the session so callers don't thread the user id. */
+async function logEvent(projectId: string | null, projectName: string, action: EventAction, detail?: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const actor = data.session?.user.id;
+    if (!actor) return;
+    await supabase.from("project_events").insert({
+      project_id: projectId, project_name: projectName || "Untitled", actor, action, detail: detail ?? null,
+    });
+  } catch {
+    /* audit is best-effort */
+  }
+}
+
+/** A project's activity trail, newest first. */
+export async function listProjectEvents(projectId: string, limit = 50): Promise<ProjectEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("project_events")
+    .select("id,action,detail,at,actor:profiles!project_events_actor_fkey(display_name)")
+    .eq("project_id", projectId)
+    .order("at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as unknown as Array<{ id: string; action: EventAction; detail: string | null; at: string; actor: Embed }>)
+    .map((r) => ({ id: r.id, action: r.action, detail: r.detail, at: r.at, actor_name: embedName(r.actor) }));
 }
 
 // ── revisions (RISK_REVIEW R1): every save also appends here; DB trims to ~20 ──
@@ -279,6 +328,10 @@ export async function getShareToken(projectId: string): Promise<string | null> {
 export async function setShareToken(projectId: string, token: string | null): Promise<boolean> {
   if (!supabase) return false;
   const { error } = await supabase.from("projects").update({ share_token: token }).eq("id", projectId);
+  if (!error) {
+    const { data: cur } = await supabase.from("projects").select("name").eq("id", projectId).maybeSingle();
+    await logEvent(projectId, (cur as { name: string } | null)?.name ?? "Untitled", token ? "shared" : "unshared");
+  }
   return !error;
 }
 

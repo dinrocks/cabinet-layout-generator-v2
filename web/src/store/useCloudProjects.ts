@@ -10,9 +10,9 @@ import type { LayoutModel, Library } from "../model/types";
 import { validate } from "../model/validate";
 import {
   listProjects, loadProject, saveProject, deleteProject, projectLocal,
-  listRevisions, loadRevision, getProjectVersion,
+  listRevisions, loadRevision, getProjectVersion, listProjectEvents,
   listFolders, createFolder, renameFolder, deleteFolder, moveProject,
-  type ProjectSummary, type RevisionSummary, type Folder,
+  type ProjectSummary, type RevisionSummary, type ProjectEvent, type Folder,
 } from "./projectStore";
 import { clearDraft } from "./draft";
 import type { Selection } from "../editor/FabricStage";
@@ -24,7 +24,7 @@ export type Status =
   | { kind: "done"; label: string }
   | { kind: "error"; message: string };
 
-export interface HistoryTarget { id: string; name: string; revs: RevisionSummary[] }
+export interface HistoryTarget { id: string; name: string; revs: RevisionSummary[]; events: ProjectEvent[] }
 
 interface Args {
   auth: ReturnType<typeof useAuth>;
@@ -177,12 +177,12 @@ export function useCloudProjects({
     await refreshProjects(); // show the copy (newest first)
   }
 
-  /** Open a project's save history (last ~20 revisions). */
+  /** Open a project's history: restorable saves + the activity (audit) trail. */
   async function openHistory(p: ProjectSummary) {
     setCloudBusy(true);
-    const revs = await listRevisions(p.id);
+    const [revs, events] = await Promise.all([listRevisions(p.id), listProjectEvents(p.id)]);
     setCloudBusy(false);
-    setHistoryFor({ id: p.id, name: p.name, revs });
+    setHistoryFor({ id: p.id, name: p.name, revs, events });
   }
 
   /** Load a revision into the editor as UNSAVED work — the server is untouched

@@ -249,3 +249,28 @@ language sql security definer stable set search_path = public as $$
 $$;
 revoke all on function public.shared_project(text) from public;
 grant execute on function public.shared_project(text) to anon, authenticated;
+
+-- ── Phase 3: audit log — who did what, when (team activity trail) ────────────
+-- Append-only. Survives project deletion (project_id → null on delete) so a
+-- delete stays auditable; project_name is snapshotted for that case. Written
+-- best-effort by the client (team-trust model, same as revisions).
+create table if not exists public.project_events (
+  id           uuid primary key default gen_random_uuid(),
+  project_id   uuid references public.projects (id) on delete set null,
+  project_name text not null default 'Untitled',
+  actor        uuid references public.profiles (id),
+  action       text not null,          -- created | saved | duplicated | deleted | shared | unshared
+  detail       text,                   -- optional (e.g. copy source/target)
+  at           timestamptz not null default now()
+);
+create index if not exists project_events_project_idx on public.project_events (project_id, at desc);
+create index if not exists project_events_at_idx on public.project_events (at desc);
+
+alter table public.project_events enable row level security;
+drop policy if exists "members read events" on public.project_events;
+create policy "members read events" on public.project_events
+  for select using (public.is_member());
+drop policy if exists "members add events" on public.project_events;
+create policy "members add events" on public.project_events
+  for insert with check (public.is_member() and actor = auth.uid());
+-- no update/delete policies: the audit trail is append-only.

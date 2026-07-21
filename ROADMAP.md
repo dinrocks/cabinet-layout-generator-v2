@@ -68,11 +68,11 @@ the tech-debt item (#8) remains — deliberately deferred (see the **Deferred** 
 
 ## Backlog (deferred, in rough priority order)
 
-### 1. Audit log / activity trail
-Record **who created / edited / saved** each project and when; a simple activity view.
-- New `project_events` table (project_id, actor, action, at) + RLS (members read, insert own).
-- Write an event on save/open; render a per-project timeline. Pairs naturally with the
-  multi-user-safety and revisions work above.
+### 1. Audit log / activity trail — ✅ DONE (2026-07-21)
+`project_events` (append-only; `project_id` → null on delete so deletes stay auditable, name
+snapshotted) + RLS (members read, insert own, no update/delete). Client logs create/save/duplicate/
+delete/share/unshare best-effort (actor from session); the History dialog (⟲) shows the trail as an
+**Activity** section beneath the restorable saves. Needs one `schema.sql` re-run.
 
 ### 2. Harden + custom domain
 - Settle the **final domain** before re-wiring OAuth (CLAUDE.md §6 — callbacks are per-domain).

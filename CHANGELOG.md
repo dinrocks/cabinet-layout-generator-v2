@@ -97,6 +97,16 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
 - Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged.
 
+### Added — audit log / activity trail
+- **Who did what, when.** Every create / save / duplicate / delete / share / revoke on a cloud project
+  is recorded (append-only `project_events`), shown as an **Activity** trail in the project's History
+  dialog (⟲ in the Open list) beneath the restorable saves. Written best-effort by the client (never
+  fails the operation it records), actor resolved from the session.
+- Deletes stay auditable: the event is logged *before* the delete and the FK nulls its `project_id`,
+  so a removed project's history survives (with its name snapshotted). No update/delete policies —
+  the trail is append-only.
+- **Action needed once:** re-run `supabase/schema.sql` (adds `project_events` + RLS; idempotent).
+
 ### Added — read-only share links (Phase 3, part 2 — Phase 3 complete)
 - **Share** button (on a saved cloud project) creates a revocable link — `?share=<token>` — that anyone
   can open **without an account**: a read-only viewer showing the **latest saved version** (never

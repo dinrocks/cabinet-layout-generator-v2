@@ -478,7 +478,8 @@ export default function App() {
       )}
 
       {cloud.historyFor && (
-        <RevisionsModal projectName={cloud.historyFor.name} revisions={cloud.historyFor.revs} busy={cloud.cloudBusy}
+        <RevisionsModal projectName={cloud.historyFor.name} revisions={cloud.historyFor.revs}
+          events={cloud.historyFor.events} busy={cloud.cloudBusy}
           onRestore={cloud.doRestoreRevision} onClose={() => cloud.setHistoryFor(null)} />
       )}
 
