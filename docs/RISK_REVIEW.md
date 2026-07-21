@@ -224,3 +224,30 @@ ever shows up.
   render exactly as the inline code did.
 - Sheet/BOM/cap-height renderers are pure + tested; the em↔cap conversion is asserted in CI.
 - `jszip` (MIT, ubiquitous) is the only new runtime dependency; pinned via package-lock.
+
+---
+
+# Round 3 — VibeSec security review · 2026-07-21 · reviewed against `main` @ `d94bed6`
+
+A focused security audit (access control, XSS, SSRF/path, auth/JWT, upload, secrets, CSRF, headers)
+after the anonymous share surface + block endpoint shipped. **Overall posture: strong (8.2/10)** —
+RLS on every table, JWT `aud`/`exp`/alg-family checks (no `alg:none`, no RS/HS confusion), secrets
+server-only, exact-token share RPC, `/block/{id}` regex, size-capped parse-validated upload, no raw
+SQL, no cookie-CSRF surface. Findings below are hardening / two operational gaps — none outsider-
+exploitable today. **The actionable HOW (exact file/code/test/deploy) lives in
+[SECURITY_HARDENING.md](SECURITY_HARDENING.md); this is the ranked register.**
+
+- **M1 — service fails OPEN if `SUPABASE_JWT_SECRET` unset** (MEDIUM, operational). A dropped env var on
+  redeploy silently opens `/upload`·`/export`·`/block`. Fix: `REQUIRE_AUTH=1` fail-closed flag. → Commit 1.
+- **M2 — `/export` doesn't validate `block_ref`** the way `/block/{id}` does (LOW–MED). Client-controlled
+  ref flows into `store.path()` (path traversal / arbitrary `.dxf` read; bounded). Fix: validate in
+  `store.py` so all callers are covered; map to 400 in `/export`. → Commit 1.
+- **M3 — no CSP / security headers** on the SPA (MEDIUM, defense-in-depth). The proper backstop for the
+  anonymous share viewer. Fix: `web/public/_headers` CSP, verified on a Cloudflare preview. → Commit 2.
+- **M4 — SVG sanitizer is regex-based and load-bearing** on the anon share-viewer PDF path (LOW–MED).
+  Fix (OPTIONAL, after CSP): DOMPurify at the browser-only entry points; keep the regex baseline. → Commit 3.
+- **L1 — de-provisioned member keeps *service* access until token `exp`** (LOW). Mitigate by lowering the
+  Supabase JWT expiry (config). Accepted otherwise.
+- **L2 — Supabase JWT in `localStorage`** (LOW, SDK default). Mitigated by CSP (M3). Accepted.
+- **Shared-tenancy** (any member reads/edits/deletes any project) — by design, not a vuln. Recorded in
+  SECURITY.md.

@@ -23,6 +23,21 @@ This is a manual-first drawing tool. A few properties are security-relevant:
 - **AI is off.** When the AI socket is eventually enabled it must route through a server-side proxy with
   the key in an env var — never shipped to the browser (see `CLAUDE.md §1`).
 
+### Accepted design decisions (conscious, not oversights)
+
+- **Single-team shared workspace.** Any allow-listed member may read / edit / delete **any** project —
+  this is the intended team model, not a horizontal-access bug. Deletes are owner-or-admin; shared
+  library edits/deletes are admin-only; the append-only audit log (`project_events`) records who did
+  what, when.
+- **Share links are "anyone with the link", revocable.** A read-only viewer via an exact-token
+  `SECURITY DEFINER` RPC (RLS stays closed); clearing the token revokes instantly.
+- **The service must fail closed in production.** Set `REQUIRE_AUTH=1` on the deployed service so a
+  missing `SUPABASE_JWT_SECRET` is a hard 503, never an open endpoint (auth stays optional only for
+  local dev). See `docs/SECURITY_HARDENING.md`.
+
+Open hardening items and their exact fixes are tracked in **[docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md)**
+(ranked register in `docs/RISK_REVIEW.md` Round 3).
+
 ## Supported versions
 
 The project is pre-1.0; only the latest `main` is supported. Fixes land on `main`.

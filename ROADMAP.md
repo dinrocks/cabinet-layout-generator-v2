@@ -74,14 +74,25 @@ snapshotted) + RLS (members read, insert own, no update/delete). Client logs cre
 delete/share/unshare best-effort (actor from session); the History dialog (⟲) shows the trail as an
 **Activity** section beneath the restorable saves. Needs one `schema.sql` re-run.
 
-### 2. Harden + custom domain
+### 2. Security hardening (VibeSec review, 2026-07-21) — plan ready, not built
+Posture is strong (8.2/10); these close the review's gaps. **Full implementation spec (exact file/
+code/test/deploy) in [docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md); risk register in
+[docs/RISK_REVIEW.md](docs/RISK_REVIEW.md) Round 3.** In order:
+- **Commit 1 (M1+M2):** service fail-closed (`REQUIRE_AUTH=1`) + centralize block-id validation in
+  `store.py` (close the `/export` path-traversal gap). Fully unit-testable.
+- **Commit 2 (M3):** add `web/public/_headers` CSP + security headers; verify on a Cloudflare preview.
+- **Commit 3 (M4, optional):** DOMPurify at the browser export entry points (belt-and-suspenders on CSP).
+- **Config (§4):** Render `REQUIRE_AUTH=1`; consider lowering the Supabase JWT expiry (L1); keep
+  `ALLOWED_ORIGINS` exact.
+
+### 3. Harden + custom domain
 - Settle the **final domain** before re-wiring OAuth (CLAUDE.md §6 — callbacks are per-domain).
 - Point Supabase OAuth redirect + Cloudflare Pages custom domain at it; tighten the service
   `ALLOWED_ORIGINS` / CORS and re-confirm the allowlist.
 - Full **end-to-end verification across two allow-listed teammates** (upload → shared library →
   cross-project reuse → secured export).
 
-### 3. Phase 3 — share-link + bundle (from CLAUDE.md §6) — ✅ COMPLETE
+### 4. Phase 3 — share-link + bundle (from CLAUDE.md §6) — ✅ COMPLETE
 - ✅ **Share link** — DONE (2026-07-10): revocable `?share=<token>` viewer (live latest save,
   view + PDF/PNG/BOM only) via a SECURITY DEFINER exact-token RPC; RLS stays closed. Toolbar
   **Share** creates/copies/revokes. Needs one `schema.sql` re-run.
