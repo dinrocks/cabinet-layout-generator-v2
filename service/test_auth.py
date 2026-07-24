@@ -21,9 +21,23 @@ def _token(sub: str = "user-1", aud: str = "authenticated", exp_delta: int = 360
 
 # 1) no secret configured → endpoint is open (returns None)
 os.environ.pop("SUPABASE_JWT_SECRET", None)
+os.environ.pop("REQUIRE_AUTH", None)
 assert auth.require_user(None) is None
 assert auth.require_user("Bearer anything") is None
 print("OK: open when no secret set")
+
+# 1b) REQUIRE_AUTH set + secret missing → FAIL CLOSED (503, not open) — a dropped
+# secret on redeploy must never silently open the service (RISK_REVIEW R3 M1)
+os.environ["REQUIRE_AUTH"] = "1"
+assert auth.require_auth_configured() is True
+try:
+    auth.require_user(None)
+    raise AssertionError("expected 503 when REQUIRE_AUTH set and secret missing")
+except HTTPException as e:
+    assert e.status_code == 503, e.status_code
+del os.environ["REQUIRE_AUTH"]
+assert auth.require_user(None) is None  # back to open in dev
+print("OK: REQUIRE_AUTH + no secret -> 503 (fail closed); open again when unset")
 
 # 2) secret configured → enforce
 os.environ["SUPABASE_JWT_SECRET"] = SECRET

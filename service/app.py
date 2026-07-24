@@ -20,7 +20,7 @@ from pydantic import BaseModel
 import dxf_build
 import dxf_upload
 import store
-from auth import require_user, auth_enabled
+from auth import require_user, auth_enabled, require_auth_configured
 
 app = FastAPI(title="Cabinet Layout — ezdxf service", version="0.1.0")
 
@@ -48,6 +48,9 @@ def health() -> dict[str, Any]:
         "ezdxf": ezdxf.__version__,
         "storage": store.storage_enabled(),
         "auth": auth_enabled(),
+        # require_auth=true + auth=false means the service is FAILING CLOSED (503s)
+        # because REQUIRE_AUTH is set but the secret is missing — a config alarm.
+        "require_auth": require_auth_configured(),
     }
 
 
@@ -124,6 +127,10 @@ def export(req: ExportRequest, _user: str | None = Depends(require_user)) -> Res
         buf = io.StringIO()
         doc.write(buf)
         data = buf.getvalue().encode("utf-8")
+    except store.InvalidBlockId as exc:
+        # a client-supplied block_ref that isn't a store slug (path traversal attempt
+        # or corrupt library) — reject cleanly, never let it reach the filesystem.
+        raise HTTPException(400, f"Invalid block reference in the layout ({exc}).") from exc
     except store.BlockNotFoundError as exc:
         # an uploaded part's block isn't in storage (uploaded before Storage backing
         # was live, then the cache was wiped). Tell the user what to do — re-upload it.

@@ -10,6 +10,15 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
-      # comma-separated; set to your Vercel URL, e.g. https://your-app.vercel.app
+      # comma-separated; set to the deployed frontend origin (Cloudflare Pages URL
+      # or the custom domain), e.g. https://cabinet-layout-generator-v2.pages.dev
       - key: ALLOWED_ORIGINS
+        sync: false
+      # Fail CLOSED: with this set, a missing SUPABASE_JWT_SECRET makes the service
+      # 503 instead of silently opening. Keep it "1" in every deployed environment.
+      - key: REQUIRE_AUTH
+        value: "1"
+      # Supabase JWT secret (Settings → API). When set, /upload · /export · /block
+      # require a valid Supabase token. Set via the dashboard, not committed.
+      - key: SUPABASE_JWT_SECRET
         sync: false

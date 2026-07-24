@@ -97,6 +97,17 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
 - Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged.
 
+### Security — service fails closed + block-id validated everywhere (hardening M1+M2)
+- **Fail-closed auth.** A new `REQUIRE_AUTH=1` env flag makes a missing `SUPABASE_JWT_SECRET` a hard
+  **503**, so a dropped secret on redeploy can no longer silently open `/upload` · `/export` · `/block`.
+  Local dev (flag unset) still runs open. `/health` now reports `require_auth`. **Set `REQUIRE_AUTH=1`
+  in the Render env** (added to `render.yaml`).
+- **Block-id validation is now a single chokepoint** in `store.py` (`^[A-Za-z0-9_-]{1,80}$`, raising
+  `InvalidBlockId`): every `path`/`put`/`exists` validates before any filesystem or Storage-URL use.
+  This closes the gap where `/export` routed client-supplied `block_ref`s into `store.path()` without
+  the check the `/block/{id}` route already had — a traversal `block_ref` now returns a clean **400**,
+  never a file read or a 500. Verified end-to-end + harness-tested. (RISK_REVIEW R3 M1/M2.)
+
 ### Added — audit log / activity trail
 - **Who did what, when.** Every create / save / duplicate / delete / share / revoke on a cloud project
   is recorded (append-only `project_events`), shown as an **Activity** trail in the project's History

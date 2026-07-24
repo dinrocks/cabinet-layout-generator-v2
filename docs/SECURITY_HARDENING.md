@@ -19,10 +19,13 @@ and the deploy-config steps (§4) applied on Render + Supabase.
 
 ---
 
-## Commit 1 — Service fail-closed + block-id validation (M1 + M2)
+## Commit 1 — Service fail-closed + block-id validation (M1 + M2) — ✅ DONE (2026-07-21)
 
-One commit: `service/auth.py`, `service/store.py`, `service/app.py`, `service/render.yaml`,
-`service/.env.example`, `service/test_auth.py`, `service/test_block.py`.
+Shipped: `service/auth.py` (`REQUIRE_AUTH` fail-closed + `require_auth_configured()`), `service/store.py`
+(`InvalidBlockId` + `_valid()` on path/put/exists), `service/app.py` (`/health` reports `require_auth`;
+`/export` maps `InvalidBlockId` → 400), `service/render.yaml` + `.env.example` (`REQUIRE_AUTH`),
+`service/test_auth.py` + `service/test_block.py`. All three harnesses green; `/export` traversal verified
+→ 400 end-to-end. **Remaining click-step: set `REQUIRE_AUTH=1` in the Render env (§4).**
 
 ### M1 — Service auth must FAIL CLOSED when the secret is missing  ·  severity: MEDIUM (operational)
 

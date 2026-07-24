@@ -36,6 +36,14 @@ def auth_enabled() -> bool:
     return bool(os.environ.get("SUPABASE_JWT_SECRET"))
 
 
+def require_auth_configured() -> bool:
+    """True when REQUIRE_AUTH is set, making a missing secret a hard error instead
+    of an open door. Set REQUIRE_AUTH=1 in EVERY deployed environment so a dropped
+    SUPABASE_JWT_SECRET fails closed (503) rather than silently opening the service.
+    A public accessor so /health can report it without touching a private name."""
+    return os.environ.get("REQUIRE_AUTH", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _jwks():
     """Cached JWKS client for the project's asymmetric signing keys (lazy)."""
     global _jwk_client
@@ -54,6 +62,11 @@ def require_user(authorization: str | None = Header(default=None)) -> str | None
     token is missing/invalid (so the cause is diagnosable from the client)."""
     secret = os.environ.get("SUPABASE_JWT_SECRET")
     if not secret:
+        # Fail CLOSED where auth is declared required, so a dropped env var on
+        # redeploy can't silently open /upload · /export · /block (RISK_REVIEW R3
+        # M1). Stays open only in local dev, where REQUIRE_AUTH is unset.
+        if require_auth_configured():
+            raise HTTPException(503, "Service auth is required but SUPABASE_JWT_SECRET is not configured.")
         return None  # auth disabled (local dev) — open endpoint
     if jwt is None:
         raise HTTPException(500, "PyJWT is not installed on the service")

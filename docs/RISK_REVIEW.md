@@ -237,11 +237,10 @@ SQL, no cookie-CSRF surface. Findings below are hardening / two operational gaps
 exploitable today. **The actionable HOW (exact file/code/test/deploy) lives in
 [SECURITY_HARDENING.md](SECURITY_HARDENING.md); this is the ranked register.**
 
-- **M1 — service fails OPEN if `SUPABASE_JWT_SECRET` unset** (MEDIUM, operational). A dropped env var on
-  redeploy silently opens `/upload`·`/export`·`/block`. Fix: `REQUIRE_AUTH=1` fail-closed flag. → Commit 1.
-- **M2 — `/export` doesn't validate `block_ref`** the way `/block/{id}` does (LOW–MED). Client-controlled
-  ref flows into `store.path()` (path traversal / arbitrary `.dxf` read; bounded). Fix: validate in
-  `store.py` so all callers are covered; map to 400 in `/export`. → Commit 1.
+- **M1 — service fails OPEN if `SUPABASE_JWT_SECRET` unset** (MEDIUM) — ✅ FIXED (2026-07-21): `REQUIRE_AUTH=1`
+  flag → 503 when the secret is missing; `/health` reports it; set in `render.yaml`. Set on Render.
+- **M2 — `/export` doesn't validate `block_ref`** (LOW–MED) — ✅ FIXED (2026-07-21): validation centralized in
+  `store.py` (`InvalidBlockId`); every path/put/exists checks; `/export` maps it to 400. Harness-tested.
 - **M3 — no CSP / security headers** on the SPA (MEDIUM, defense-in-depth). The proper backstop for the
   anonymous share viewer. Fix: `web/public/_headers` CSP, verified on a Cloudflare preview. → Commit 2.
 - **M4 — SVG sanitizer is regex-based and load-bearing** on the anon share-viewer PDF path (LOW–MED).
