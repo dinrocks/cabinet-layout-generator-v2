@@ -241,8 +241,9 @@ exploitable today. **The actionable HOW (exact file/code/test/deploy) lives in
   flag → 503 when the secret is missing; `/health` reports it; set in `render.yaml`. Set on Render.
 - **M2 — `/export` doesn't validate `block_ref`** (LOW–MED) — ✅ FIXED (2026-07-21): validation centralized in
   `store.py` (`InvalidBlockId`); every path/put/exists checks; `/export` maps it to 400. Harness-tested.
-- **M3 — no CSP / security headers** on the SPA (MEDIUM, defense-in-depth). The proper backstop for the
-  anonymous share viewer. Fix: `web/public/_headers` CSP, verified on a Cloudflare preview. → Commit 2.
+- **M3 — no CSP / security headers** on the SPA (MEDIUM, defense-in-depth) — ⏳ SHIPPED (2026-07-21):
+  `web/public/_headers` CSP + headers; app + all 4 export paths verified clean under CSP locally;
+  connect-src/OAuth/share-viewer PDF still to verify on a Cloudflare preview.
 - **M4 — SVG sanitizer is regex-based and load-bearing** on the anon share-viewer PDF path (LOW–MED).
   Fix (OPTIONAL, after CSP): DOMPurify at the browser-only entry points; keep the regex baseline. → Commit 3.
 - **L1 — de-provisioned member keeps *service* access until token `exp`** (LOW). Mitigate by lowering the

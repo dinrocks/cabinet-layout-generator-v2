@@ -1,0 +1,23 @@
+# Cloudflare Pages security headers (applied to every response). See
+# docs/SECURITY_HARDENING.md (M3) for the rationale and the verification matrix.
+#
+# CSP notes (each directive is load-bearing — verify on a Cloudflare PREVIEW before
+# tightening; CSP does NOT apply under `vite dev`):
+#   script-src 'self'    — Vite emits ONE external module script; no inline JS, and
+#                          the bundle uses no eval/new Function (verified at build),
+#                          so no 'unsafe-inline'/'unsafe-eval' needed.
+#   style-src 'unsafe-inline' — REQUIRED: React inline style props + inline style on
+#                          the sheet/part SVGs. Can't drop without refactoring styles.
+#   img-src data: blob:  — share viewer <img src="data:image/svg+xml,…"> + PNG export
+#                          (Blob URL) + canvas.
+#   font-src data:       — bundled Sarabun asset + any data-URI font.
+#   connect-src          — Supabase (REST/Auth/JWKS) + the Render ezdxf service. UPDATE
+#                          these hosts if the project ever moves (see docs/REFERENCE.md §3).
+#   worker-src blob:     — jsPDF/canvas may spin a blob worker.
+#   OAuth (GitHub/Google) is a top-level navigation, not connect-src/frame — not blocked.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://kfxhtqeooxvmikcgmfkc.supabase.co https://cabinet-ezdxf-kndf.onrender.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'

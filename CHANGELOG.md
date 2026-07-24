@@ -97,6 +97,14 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
 - Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged.
 
+### Security — Content-Security-Policy + security headers (hardening M3)
+- **`web/public/_headers`** ships a strict CSP (`script-src 'self'` — no `unsafe-inline`/`unsafe-eval`),
+  plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and HSTS. This is
+  the real backstop for the anonymous share viewer (blocks script execution even if the SVG sanitizer
+  ever misses a vector). Verified locally under the exact CSP: app boots clean and all four export
+  paths (SVG/PNG/PDF/BOM-PDF) run with zero violations. `connect-src`/OAuth/share-viewer-PDF are to be
+  confirmed on a Cloudflare preview. (RISK_REVIEW R3 M3.)
+
 ### Security — service fails closed + block-id validated everywhere (hardening M1+M2)
 - **Fail-closed auth.** A new `REQUIRE_AUTH=1` env flag makes a missing `SUPABASE_JWT_SECRET` a hard
   **503**, so a dropped secret on redeploy can no longer silently open `/upload` · `/export` · `/block`.

@@ -152,7 +152,16 @@ matching its style, or add these as plain asserts. Match the existing file's sty
 
 ---
 
-## Commit 2 — Content-Security-Policy + security headers (M3)
+## Commit 2 — Content-Security-Policy + security headers (M3) — ⏳ SHIPPED, verify on preview
+
+Shipped `web/public/_headers` (CSP + nosniff + DENY + Referrer-Policy + HSTS). **Local verification
+done** (served the built `dist/` under the exact CSP via a static server): the app boots under
+`script-src 'self'` with **zero console violations**, the bundle has no inline scripts and no
+`eval`/`new Function`, and **all four in-browser export paths ran clean under CSP** (SVG · PNG ·
+PDF · BOM-PDF — the svg2pdf/jsPDF/canvas/blob/data: risks). **STILL TO VERIFY on a Cloudflare preview**
+(needs the live cloud + a signed-in session): `connect-src` to Supabase (save/open/history/share) and
+the Render service (DXF export/upload), OAuth sign-in, and the share-viewer PDF download. Run the
+matrix below on the preview before trusting in prod.
 
 One commit: `web/public/_headers` (new) + a note in `docs/PHASE2_SETUP.md`. **This is the primary,
 proper fix for the residual XSS risk on the anonymous share surface** — a CSP blocks script execution even
