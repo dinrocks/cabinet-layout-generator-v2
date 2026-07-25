@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please **do not** open a public issue for security problems. Instead, report privately via GitHub's
-**[Report a vulnerability](https://github.com/Taamrock04/cabinet-layout-generator/security/advisories/new)**
+**[Report a vulnerability](https://github.com/Taam4142/cabinet-layout-generator-v2/security/advisories/new)**
 (Security → Advisories), or email the maintainer at **nat.kati.04@gmail.com**.
 
 Include enough detail to reproduce (affected component, steps, impact). You can expect an initial

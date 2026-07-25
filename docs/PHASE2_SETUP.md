@@ -162,3 +162,43 @@ One-time: SQL Editor → run the full `supabase/schema.sql` again (idempotent). 
 `folders` table, `projects.folder_id`, and RLS. Then in **Open**: **+ New folder**, drag layouts in
 with each row's **▾ move**, rename/delete folders. Deleting a folder keeps its layouts (moved to
 Unfiled). Nothing else to configure.
+
+## Phase 3 — share links + audit log (one schema re-run covers both)
+
+The share-link viewer and the audit-log **code** ship in the app; they stay inert until the schema is
+re-run once.
+
+1. **Schema (once):** SQL Editor → run the full `supabase/schema.sql` again (idempotent). This adds:
+   - `projects.share_token` + the `shared_project(token)` **SECURITY DEFINER** RPC (anonymous, exact-
+     token, read-only) — powers the **Share** button's revocable read-only links.
+   - the `project_events` table + RLS (append-only; `project_id` → null on delete so deletions stay
+     auditable) — powers the **Activity** trail in the History (⟲) dialog.
+2. **Verify — share:** open a saved project → **Share** → *Create link* → *Copy* → paste it into a
+   private window. You see the read-only viewer (drawing + PDF/PNG). Click **Revoke** → reload the
+   private tab → "This link isn't valid".
+3. **Verify — audit:** Save a project, then open its **⟲ History** → the **Activity** section lists
+   *created / saved / shared* with who + when.
+
+> Nothing on Render/Cloudflare changes for this step — it's a Supabase-schema-only addition.
+
+## Security hardening (fail-closed service)
+
+One env change on Render makes the service **fail closed** — a missing `SUPABASE_JWT_SECRET` returns
+**503** instead of silently opening `/upload` · `/export` · `/block`.
+
+1. **Render** → the `cabinet-ezdxf-*` service → **Environment** → add:
+   ```
+   REQUIRE_AUTH = 1
+   ```
+   (Keep `SUPABASE_JWT_SECRET` set — that's what's being protected.) Save → redeploy.
+2. **Verify:** `GET https://<svc>.onrender.com/health` → `{"auth": true, "require_auth": true}`.
+   If you ever see `"auth": false, "require_auth": true`, the service is (correctly) 503-ing because
+   the secret went missing — a config alarm, not an outage of the whole app (in-browser exports still
+   work).
+3. **CSP:** the SPA ships security headers + a Content-Security-Policy via `web/public/_headers` (applied
+   automatically by Cloudflare Pages). After a deploy, sanity-check a **preview** URL — sign-in, save,
+   DXF export, and a **share link + its PDF download** should have no console CSP violations. Rationale
+   + full matrix: [SECURITY_HARDENING.md](SECURITY_HARDENING.md).
+4. *(Optional, low-impact)* **Supabase → Authentication** → lower the **access-token (JWT) expiry** from
+   3600 → ~900 s to shrink the window a de-provisioned member's still-valid token works against the
+   service. Config-only; users aren't logged out (the SDK auto-refreshes).

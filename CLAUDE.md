@@ -127,10 +127,11 @@ When/if AI is enabled, its output is **always** the validated JSON schema (SKILL
 
 ## 6. Phasing discipline (ship the core before the machinery)
 
-Build the single-user editor + exports first (**Phase 1 — complete**), then auth/DB/sharing (Phase 2),
-then share-link + bundle (Phase 3). Same final scope, far less risk, value sooner. Do **not** wire OAuth
-before the final host/domain is settled (callbacks are per-domain). The ezdxf round-trip was spiked
-(Step 0) before building UI around it.
+Build the single-user editor + exports first (Phase 1), then auth/DB/sharing (Phase 2), then share-link
++ bundle (Phase 3). Same final scope, far less risk, value sooner. **All three phases have shipped**
+(plus the drawing-output pipeline + security hardening); the remaining backlog item — custom domain +
+OAuth hardening — still waits on the final domain being settled (callbacks are per-domain). The ezdxf
+round-trip was spiked (Step 0) before building UI around it.
 
 ---
 
@@ -147,7 +148,7 @@ before the final host/domain is settled (callbacks are per-domain). The ezdxf ro
 ## 8. Resolved decisions (were open at scaffold time)
 
 - **Frontend framework:** **React + Vite + TypeScript** (matches the sibling TOR tool).
-- **ezdxf host:** **Render free tier** (FastAPI). Frontend on **Vercel** for Phase 1.
+- **ezdxf host:** **Render free tier** (FastAPI). Frontend on **Cloudflare Pages** (commercial-OK).
 - **Step-0 spike:** done with **IDEC FC6A-D16R1CEE** (`FC6A-D16-A4-P00467.dxf`); round-trip into
   GstarCAD 2020 passed.
 - **Datasheet dimensions:** FC6A-D16 **measured 70.19 × 103.29 mm** (now `confirm:false`).

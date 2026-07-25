@@ -75,39 +75,44 @@ cabinet-layout-generator-v2/
 ├─ docs/
 │  ├─ WORKFLOW.md                  how we work (process loop, doc map, commit style)
 │  ├─ REFERENCE.md                 this file (palette · tree · stack)
-│  ├─ RISK_REVIEW.md               ranked risks + why/how each was fixed
-│  ├─ PHASE2_SETUP.md              click-by-click provisioning (Supabase/Render/Cloudflare/backup)
+│  ├─ RISK_REVIEW.md               ranked risks + why/how each fixed (Rounds 1–3, incl. VibeSec)
+│  ├─ SECURITY_HARDENING.md        the security implementation plan (fail-closed · block-id · CSP)
+│  ├─ PHASE2_SETUP.md              click-by-click provisioning (Supabase/Render/Cloudflare/share/audit)
 │  ├─ planning/00–05 + README      as-built planning corpus
 │  └─ showcase-*.svg               README artwork
-├─ supabase/schema.sql             idempotent DB schema + RLS — re-run the WHOLE file on change
+├─ supabase/schema.sql             idempotent DB schema + RLS (allowlist·projects·revisions·folders·
+│                                  library·share_token+RPC·project_events) — re-run the WHOLE file on change
 ├─ .github/workflows/              ci.yml (web checks + service harnesses) · keepalive.yml (Supabase
 │                                  anti-pause) · backup.yml (nightly dump → private `backups` bucket)
 ├─ web/                            React 19 + Vite + TS, Fabric.js v7, Vitest
-│  ├─ public/guide.html            in-app user guide (⚠ drifts — ROADMAP #8)
+│  ├─ public/guide.html            in-app user guide  ·  public/_headers (CSP) · _redirects (SPA)
 │  └─ src/
 │     ├─ model/                    PURE core, no DOM/Fabric — every risky rule lives here, tested:
 │     │   types · edit · geometry · rows · align · sets · insert · marquee · bom · validate ·
-│     │   sheet (AMR frame/title-block spec, mirrored in dxf_build.py) ·
+│     │   sheet (AMR title-block spec measured 1:1 from Template.dxf, mirrored in dxf_build.py) ·
 │     │   bomsheet (BOM on sheets: wrap + paginate → PDF; mirrored in dxf_build.py BOM tab) ·
+│     │   bundle (which uploaded DXFs a portable bundle needs) ·
 │     │   library (BANDS/byName) · resolve · factory · overlap · ductsnap · reflow (+ *.test.ts)
-│     ├─ render/toSvg.ts           THE renderer (preview = PDF/PNG/SVG); render/page.ts paper fit
-│     ├─ export/inBrowser.ts       PDF/PNG/SVG downloads (jsPDF/svg2pdf/canvas)
-│     ├─ editor/                   FabricStage (canvas view-binding) · useHistory (undo/redo) ·
-│     │                            zoom · Toolbar · LibrarySidebar · PropertiesPanel · OpenDialog ·
-│     │                            modals: Upload / EditPart / Insert / Bom / Revisions
-│     ├─ store/                    projectStore (cloud projects+folders+revisions, stale-save CAS) ·
+│     ├─ render/                   toSvg.ts THE renderer (preview = PDF/PNG/SVG) · page.ts paper fit +
+│     │                            BOM pages · embedSvg.ts (part linework: define-once/<use>, sanitize)
+│     ├─ export/                   inBrowser (PDF/PNG/SVG via jsPDF/svg2pdf/canvas) · bundle (ZIP) · pdfFont (Thai/Sarabun)
+│     ├─ editor/                   FabricStage (canvas view-binding) · useHistory (undo/redo) · zoom ·
+│     │                            Toolbar · LibrarySidebar · PropertiesPanel · OpenDialog ·
+│     │                            modals: Upload / EditPart / Insert / Bom / Revisions(+Activity) / Share
+│     ├─ share/ShareViewer.tsx     anonymous read-only viewer (?share=<token>)
+│     ├─ store/                    projectStore (cloud projects+folders+revisions+audit+share, stale-save CAS) ·
 │     │                            useCloudProjects (open/save/dup/folders/history hook) ·
-│     │                            libraryStore (shared parts) · draft (crash copy) · localFile (JSON)
+│     │                            libraryStore (shared parts, rowToItem) · draft (crash copy) · localFile (JSON)
 │     ├─ auth/                     SignInGate · AuthProvider/Context · auth.css
-│     ├─ lib/supabaseClient.ts     client + accessToken() · timeAgo
-│     ├─ service/dxfClient.ts      the ONLY code that talks to the ezdxf service
+│     ├─ lib/                      supabaseClient (client + accessToken) · timeAgo · shareToken
+│     ├─ service/dxfClient.ts      the ONLY code that talks to the ezdxf service (export/upload/ping/fetchBlock)
 │     └─ App.tsx + App.css         the shell (~500 lines: state + wiring; views extracted)
 └─ service/                        FastAPI + ezdxf 1.4.4, deployed on Render
-   ├─ app.py                       /health {storage,auth} · /upload (20MB cap) · /export (JWT)
-   ├─ dxf_build.py                 deterministic assembler — the ONE top-left↔bottom-left flip
+   ├─ app.py                       /health {storage,auth,require_auth} · /upload (20MB) · /export (JWT) · /block (bundle)
+   ├─ dxf_build.py                 deterministic assembler — the ONE top-left↔bottom-left flip; AMR sheet + BOM tabs
    ├─ dxf_upload.py                measure bbox + rail datum from DXF origin + SVG preview
-   ├─ store.py · auth.py           Supabase-Storage block store · JWT verify (HS256 + JWKS)
-   ├─ test_build.py · test_auth.py · test_upload_rail.py   harnesses — all run in CI
+   ├─ store.py · auth.py           Storage block store (block-id validated) · JWT verify (HS256 + JWKS, fail-closed)
+   ├─ test_build.py · test_auth.py · test_upload_rail.py · test_block.py   harnesses — all run in CI
    └─ render.yaml · .env.example   (generated, untracked: _blocks/ · out_service.* · __pycache__)
 ```
 
@@ -118,7 +123,7 @@ cabinet-layout-generator-v2/
 | Where | What | Env / secrets |
 |---|---|---|
 | **Cloudflare Pages** `cabinet-layout-generator-v2.pages.dev` | frontend (root `web`, `npm ci && npm run build` → `dist`) | `NODE_VERSION=22`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_DXF_SERVICE_URL` |
-| **Render** `cabinet-ezdxf-kndf.onrender.com` | ezdxf service (root `service`) | `ALLOWED_ORIGINS`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` ⚠, `SUPABASE_BUCKET=equipment`, `SUPABASE_JWT_SECRET` |
+| **Render** `cabinet-ezdxf-kndf.onrender.com` | ezdxf service (root `service`) | `ALLOWED_ORIGINS`, `REQUIRE_AUTH=1` (fail-closed), `SUPABASE_JWT_SECRET` ⚠, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` ⚠, `SUPABASE_BUCKET=equipment` |
 | **Supabase** project `kfxhtqeooxvmikcgmfkc` | auth + DB (RLS) + Storage buckets `equipment`, `backups` (both private) | schema via `supabase/schema.sql` |
 | **GitHub** `Taam4142/cabinet-layout-generator-v2` | repo (public) + Actions | secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` ⚠ |
 

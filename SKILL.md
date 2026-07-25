@@ -1,8 +1,8 @@
 ---
 doc: SKILL — Cabinet Layout Generator
 purpose: Architecture, pipeline, data shapes, and dependencies a fresh contributor needs to build/extend this tool
-status: Phase 1 complete — Phase 2 (multi-user) Slice 1 in progress (auth + cloud-saved projects)
-last_updated: 2026-06-06
+status: All phases shipped — editor+exports, Phase 2 (auth/cloud/library/BOM/sheets), Phase 3 (share+bundle), audit log, security-hardened
+last_updated: 2026-07-21
 ---
 
 # SKILL — Cabinet Layout Generator
@@ -35,7 +35,7 @@ panel shop.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│ BROWSER  — React + Fabric.js editor (Phase 1: Vercel → Phase 2: Cloudflare Pages)     │
+│ BROWSER  — React + Fabric.js editor (Cloudflare Pages)                                │
 │  • Fabric canvas = THE VIEW ONLY (drag/drop, grips, rotate, per-gap/clearance, sets)  │
 │  • Holds + mutates the ONE JSON layout model (the source of truth)                    │
 │  • Renders model → Fabric objects for editing                                         │
@@ -65,8 +65,8 @@ panel shop.
 - **One JSON model is the truth.** Fabric is only the view; **every export renders from the model**, so
   output is clean, deterministic, carries the title block, and never contains editor UI (handles/grid).
 
-> **Phase 1 (shipped) is the left + middle tiers only.** Supabase is Phase 2 and not yet wired; the
-> editor currently persists layouts as local JSON.
+> **All three tiers are live.** The editor still degrades gracefully: with no Supabase env it runs in
+> local mode (JSON save/open), and with the service asleep everything except DXF still works.
 
 ---
 
@@ -197,8 +197,8 @@ draft the engineer then edits — never required, never the final word.
 | In-browser export | **svg2pdf.js + jsPDF** | vector PDF; PNG via canvas `toBlob`; SVG via serialize |
 | DXF service | **Python + FastAPI + ezdxf 1.4.4** | DXF read/write; native SVG backend + Pillow (no matplotlib) |
 | Tests | **Vitest** (web) | pure model/render core, no DOM dependency |
-| Backend/DB/storage/auth | **Supabase** free tier *(Phase 2)* | pauses after 7d idle → keep-alive cron |
-| Static hosting | **Vercel (P1) → Cloudflare Pages (P2)** | move the finished multi-user tool to Cloudflare |
+| Backend/DB/storage/auth | **Supabase** free tier | pauses after 7d idle → keep-alive cron |
+| Static hosting | **Cloudflare Pages** | commercial-OK free tier; `_headers` CSP + `_redirects` SPA routing |
 
 **All free, every layer.** Keep data portable: layouts as JSON, equipment as raw DXF (anti-lock-in).
 
@@ -215,7 +215,8 @@ draft the engineer then edits — never required, never the final word.
 6. **DXF places every part as a named block** `EQ_<lib_key>` (uploaded DXFs re-embedded, rect/symbol a
    unit rectangle) with the correct transform; layered DUCT/EQUIP/TEXT/GROUND; tags/centre text separate.
 7. **At 1:100 the geometry scales but dimension text reads the real value.**
-8. **ezdxf service validates the token + restricts CORS** — it is not an open DXF endpoint.
+8. **ezdxf service validates the token + restricts CORS, and fails CLOSED** (`REQUIRE_AUTH=1` → 503 if
+   the secret is missing) — it is not an open DXF endpoint. Block ids are regex-validated everywhere.
 9. **Plate boundary = warn-but-allow** (flag overflow; don't silently block or overlap).
 10. **Degrade gracefully** — the editor + in-browser exports work with no backend at all.
 
@@ -225,15 +226,22 @@ draft the engineer then edits — never required, never the final word.
 
 - **Step 0 — ezdxf round-trip SPIKE — done.** FC6A-D16 DXF → ezdxf → SVG → place → export DXF → opened
   in GstarCAD 2020; units, base point and fidelity confirmed.
-- **Phase 1 — editor + ezdxf service — complete.** JSON model + Fabric canvas + library (rect +
+- **Phase 1 — editor + ezdxf service — DONE.** JSON model + Fabric canvas + library (rect +
   uploaded-DXF via service) + ducts (length drag / width snap / border-snap / auto-span) + sets + labels
   + per-gap/clearance editing + rows with dimensions + packing + stopper/label locked pairs + custom
-  placeholder parts + all exports (DXF = every part a named block). Hosted on Vercel + Render.
-- **Phase 2 — multi-user (next):** Supabase auth (Google/GitHub + allowlist + display name) + shared
-  projects + shared/project-local library + audit log + keep-alive cron. Move frontend to **Cloudflare
-  Pages** (settle host/domain before wiring OAuth).
-- **Phase 3 — sharing & portability:** share-by-link (SVG snapshot, no-login viewer, expiry) + `.amrlib`
-  bundle export/import.
+  placeholder parts + all exports (DXF = every part a named block). Hosted on Cloudflare Pages + Render.
+- **Phase 2 — multi-user — DONE.** Supabase auth (Google/GitHub + allowlist + display name) + shared
+  cloud projects (compare-and-set guard) + folders + revision history + nightly backups + audit log +
+  shared/project-local library (durable Storage blocks) + fail-closed JWT-secured service + keep-alive
+  cron. Plus the **drawing-output pipeline**: AMR title-block sheets (measured 1:1 from the real
+  template), the full BOM (CSV / PDF sheet / DXF layout tab), Thai-title support, and real device
+  linework embedded in exports (define-once/`<use>` so big layouts stay light).
+- **Phase 3 — sharing & portability — DONE.** Revocable read-only **share link** (`?share=<token>` via a
+  SECURITY DEFINER exact-token RPC; view + PDF/PNG, no login) + portable **bundle** ZIP (layout JSON +
+  every referenced equipment DXF via the auth-guarded `GET /block/{id}`).
+- **Security** — two whole-project risk reviews + a focused VibeSec audit (posture ~9/10); see
+  `docs/RISK_REVIEW.md` + `docs/SECURITY_HARDENING.md`.
+- **Backlog** — custom domain + OAuth hardening (waits on the final domain). AI socket stays off.
 
 ---
 
@@ -244,7 +252,7 @@ cabinet-layout-generator/
   README.md                 ← product overview (with rendered showcase drawings)
   SKILL.md                  ← this file — architecture & data shapes
   CLAUDE.md                 ← the rules: never invent geometry, AI socket, validation, conventions
-  RUNNING.md  DEPLOY.md     ← run locally / deploy to Vercel + Render
+  RUNNING.md  DEPLOY.md     ← run locally / deploy to Cloudflare Pages + Render + Supabase
   docs/                     ← showcase SVGs used by the README (rendered from the model)
   web/                      ← React (Vite) editor — model + view + in-browser exports
     src/model/              ← JSON layout model: types, validation, re-flow, packing, geometry  (pure, unit-tested)

@@ -1,7 +1,11 @@
-# Supabase (Phase 2)
+# Supabase
 
-`schema.sql` sets up the Slice-1 backend: an **email allowlist**, **profiles**, and **projects**
-(each layout stored as one `jsonb` blob), with **RLS** that gates all data on being allow-listed.
+`schema.sql` is the **whole backend**, idempotent — **re-run the entire file** whenever it changes
+(never apply partial diffs). It sets up, all under **RLS** that gates every table on being
+allow-listed: **email allowlist** + **profiles** · **projects** (each layout one `jsonb` blob) +
+**project_revisions** (last-20 history) + **project_events** (append-only audit log) + **folders** ·
+the shared **library_items** catalog · **share tokens** + the `shared_project(token)` anonymous
+read-only RPC. Helper functions `is_member()` / `is_admin()` are `SECURITY DEFINER`.
 
 ## Apply it
 
@@ -26,8 +30,8 @@ VITE_SUPABASE_URL=...        # Project URL
 VITE_SUPABASE_ANON_KEY=...   # anon/publishable key (safe in the browser)
 ```
 
-> The **service_role key never goes in the frontend or this repo** — it bypasses RLS. It's only needed
-> later (Slice 2) for the ezdxf service to verify JWTs / read blocks server-side.
+> The **service_role key never goes in the frontend or this repo** — it bypasses RLS. It's only used
+> server-side: the ezdxf service (read/write Storage blocks) and the nightly-backup Action.
 
 Full click-by-click provisioning (OAuth apps, Cloudflare, Render CORS) lives in
 [`docs/PHASE2_SETUP.md`](../docs/PHASE2_SETUP.md).

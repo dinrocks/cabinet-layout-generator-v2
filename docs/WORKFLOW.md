@@ -1,8 +1,9 @@
 # Workflow — how we build this project
 
-_The collaboration loop that has worked (engineer + AI assistant, Phase 1 → Phase 2). Follow it
-every session so quality stays repeatable. Companions: [REFERENCE.md](REFERENCE.md) (palette/tree/
-stack), `CLAUDE.md` (laws), `SKILL.md` (architecture), [RISK_REVIEW.md](RISK_REVIEW.md) (risk log)._
+_The collaboration loop that has worked (engineer + AI assistant, through Phases 1–3 + hardening).
+Follow it every session so quality stays repeatable. Companions: [REFERENCE.md](REFERENCE.md)
+(palette/tree/stack), `CLAUDE.md` (laws), `SKILL.md` (architecture), [RISK_REVIEW.md](RISK_REVIEW.md)
+(risk log) + [SECURITY_HARDENING.md](SECURITY_HARDENING.md) (the security plan)._
 
 ---
 
@@ -47,6 +48,7 @@ stack), `CLAUDE.md` (laws), `SKILL.md` (architecture), [RISK_REVIEW.md](RISK_REV
 | Any user-visible change | `CHANGELOG.md` (Keep-a-Changelog style, why included) |
 | Plan approved / idea worth keeping / deferred item | `ROADMAP.md` — deferred items get a **trigger** ("do when X"), never just "later" |
 | Risk found or fixed | `docs/RISK_REVIEW.md` — the failure story (why) + the fix (how); mark ✅ when shipped |
+| A multi-step security/hardening effort | `docs/SECURITY_HARDENING.md` — the implementation plan (path/code/test/deploy); RISK_REVIEW keeps the ranked register |
 | Engineer must click things (SQL, buckets, secrets, env) | `docs/PHASE2_SETUP.md` — exact click-by-click + a Verify step |
 | Palette / tree / stack / conventions changed | `docs/REFERENCE.md` |
 | The process itself evolves | this file + the short pointer in `CLAUDE.md` |

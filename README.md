@@ -147,33 +147,46 @@ illustrated walkthrough of every feature.
 ## Tech stack
 
 - **Editor** — React 19 + Vite + TypeScript, Fabric.js v7 canvas, Vitest for the pure core
-- **DXF service** — Python + FastAPI + ezdxf, stateless with just two endpoints (`upload`, `export`)
+- **Cloud** — Supabase (auth + Postgres/RLS + Storage); Cloudflare Pages (frontend) + Render (service), all free-tier
+- **DXF service** — Python + FastAPI + ezdxf, stateless; endpoints `upload` · `export` · `block` · `health` (JWT-guarded, fail-closed)
 - **Free & portable on every layer** — layouts persist as JSON, equipment as raw DXF; nothing traps the engineer if a free tier changes
 
 ## Project layout
 
 ```
 web/        React (Vite) editor — the model, validation, the model→SVG renderer, the canvas UI
-  src/model/    types, geometry, validate, rows, sets, insert, marquee, bom, sheet…  (pure, unit-tested)
-  src/render/   toSvg + page/BOM-sheet composers — THE single renderer (preview + PDF/PNG/SVG)
+  src/model/    types, geometry, validate, rows, sets, insert, marquee, bom, sheet, bomsheet,
+                bundle…  (pure, unit-tested)
+  src/render/   toSvg + page/BOM-sheet composers + embedSvg (real part linework) — THE single renderer
   src/editor/   Fabric.js canvas binding + Toolbar / LibrarySidebar / PropertiesPanel / dialogs
-  src/store/    cloud projects (folders/revisions) · shared library · drafts · local JSON
-service/    Python ezdxf service — DXF upload (measure + retain block) and export (assemble .dxf)
-docs/       WORKFLOW · REFERENCE (palette/tree/stack) · RISK_REVIEW · PHASE2_SETUP · planning corpus
+  src/store/    cloud projects (folders/revisions/audit) · useCloudProjects hook · shared library · drafts · local JSON
+  src/share/    read-only share-link viewer (?share=<token>)
+service/    Python ezdxf service — upload (measure+retain) · export (assemble .dxf) · block (bundle) · health
+supabase/   schema.sql — idempotent DB schema + RLS (allowlist, projects, revisions, folders, library,
+            share tokens, audit events)
+docs/       WORKFLOW · REFERENCE (palette/tree/stack) · RISK_REVIEW · SECURITY_HARDENING · PHASE2_SETUP · planning
 ```
 
 ## Status
 
-**Phase 1 — complete.** Single-user editor (drag/drop, move/rotate/type-mm, sets, labels, ducts with
-border-snap + auto-span, rows with dimensions, packing, zoom/pan, overlap + clearance warnings),
-stopper/label locked pairs, user-defined custom parts, equipment DXF upload, and all four exports
-(DXF via the service — every part a named block; PDF/PNG/SVG in-browser).
+**All phases shipped and in real use.** Deployed on **Cloudflare Pages + Render + Supabase** (all
+free-tier), twice security-reviewed (posture ~9/10). The AI socket stays off.
 
-**Phase 2 — live (this repo).** Supabase auth + email allowlist, cloud projects with **folders +
-revision history + nightly backups**, the **team-shared equipment catalog**, a JWT-secured DXF service,
-drawing sheets with the company title block, and the full BOM (CSV / PDF sheet / DXF tab) — deployed on
-Cloudflare Pages + Render + Supabase, all free-tier. Setup: [docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md) ·
-process: [docs/WORKFLOW.md](docs/WORKFLOW.md) · backlog: [ROADMAP.md](ROADMAP.md). The AI socket stays off.
+- **Editor + exports** — drag/drop, move/rotate/type-mm, sets with caps + insert-beside, marquee/
+  select-row, stopper+label locked pairs, custom parts, ducts (border-snap + auto-span), rows with
+  dimensions + packing, overlap/clearance warnings. Exports: **DXF** (every part a named block, plus
+  plot-ready "A3 SHEET" + "BOM" layout tabs) · **PDF/PNG/SVG** — real drawing sheets with the company
+  **title block matched 1:1** from the shop template, and **real device linework** (uploaded-DXF
+  geometry, not bare rectangles). **Thai** titles supported.
+- **Team (Phase 2)** — Supabase auth + email allowlist, cloud projects with **folders + revision
+  history + nightly backups + an audit log** (who did what, when), the **team-shared equipment
+  catalog**, a **fail-closed JWT-secured** DXF service, and the full **BOM** (CSV / PDF sheet / DXF tab).
+- **Share & portability (Phase 3)** — a revocable read-only **share link** (view + PDF/PNG, no
+  sign-in) and a **portable bundle** export (layout JSON + every referenced equipment DXF in one ZIP).
+
+Setup: [docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md) · deploy: [DEPLOY.md](DEPLOY.md) · security:
+[docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md) · process: [docs/WORKFLOW.md](docs/WORKFLOW.md) ·
+backlog: [ROADMAP.md](ROADMAP.md).
 
 ---
 
