@@ -1,69 +1,44 @@
 # Changelog
 
 All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to follow
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Phase 2 (multi-user)
+_This is the Phase-2/3 continuation repo (duplicated with full history from
+cabinet-layout-generator). v0.1.0 and v0.2.0 were first tagged in that predecessor repo and are
+re-tagged here at the same commits so the whole story lives in one place._
 
-_This is the Phase-2 continuation repo (duplicated with full history from cabinet-layout-generator)._
+## [Unreleased]
 
-### Added — project history + nightly backup (RISK_REVIEW R1)
-- **Every Save keeps a revision** (`project_revisions`, last 20 per project, DB-trimmed). The Open
-  dialog's **⟲ History** lists them ("saved by <name> · <time>"); **Restore loads that version into the
-  editor as *unsaved* work** — the live project is untouched until you Save (which still runs the
-  stale-save guard). One bad save no longer destroys a drawing. Re-run `supabase/schema.sql` once.
-- **Nightly backup** (`.github/workflows/backup.yml`) dumps projects + shared library + allowlist to a
-  **private** Supabase Storage bucket `backups`, rotating by day-of-month (~a month of restore points).
-  Covers accidental project **deletion** too. Needs the `backups` bucket + a `SUPABASE_SERVICE_KEY`
-  Actions secret (kept out of GitHub artifacts — the repo is public).
+_Nothing yet._
 
-### Added — drawing sheets: frame + AMR title block on every export
-- **Exports are now drawing sheets, not bare geometry.** PDF/PNG compose the real AMR sheet template
-  (reproduced from the engineer's shop drawings): border + **zone grid** (1–10 / A–F), and the full
-  bottom band — REFERENCE DRAWING NO./DESCRIPTION table, REMARK, REV/DATE/DESCRIPTION history,
-  BY/CHK/ENG/APPR initials, DESIGNER/CLIENT/TITLE, and the SCALE · PROJECT NO. · DRAWING NO. ·
-  SHEET · REV. cells. The **computed scale** (e.g. 1:10) prints in the SCALE cell.
-- **DXF gets a paper-space "A3 SHEET" layout tab** — frame + title block at true paper mm and a
-  **viewport** onto the plate at the nearest standard scale (1:1…1:100). Model space is untouched
-  (blocks stay countable); open the layout tab in GstarCAD for a plot-ready sheet.
-- **Title-block fields** (title line 2, project/drawing/sheet no., rev + date + description,
-  BY/CHK/ENG/APPR, client, designer) are edited in the Plate panel, save with the project, and print
-  blank when unset — never invented. Cell sizes are estimated from screenshots; tune in `model/sheet.ts`.
-- **Sheets are always landscape** (house style) — a tall plate prints smaller instead of flipping the
-  page to portrait.
-- **Zone references** are drawn **once** — numbers along the top, letters down the left (the other two
-  edges keep just the ticks) — and the drawing keeps a **≥10 mm gap** from the frame/band on all sides.
+## [1.0.0] — 2026-07-25 — production-hardened
 
-### Added — BOM as a printable drawing sheet (PDF)
-- The BOM dialog now downloads a **multi-page vector PDF of real drawing sheets**: the AMR frame +
-  title block with the BOM table (ITEM NO. · DESCRIPTION · MANUFACTURER · MODEL · QTY) laid out in the
-  draw area. Long cells word-wrap and grow their row; rows **paginate** when the page fills, the column
-  header repeats on every page, and multi-page runs are numbered ("PAGE 2 OF 3"). Uses the app's paper
-  choice (A4/A3, landscape); the SCALE cell prints "-" (a BOM sheet has no scale). CSV export stays.
-- Same data rules as the table: "-" for unentered fields, "*" marks unconfirmed size estimates, tag
-  runs collapse to ranges (B101-B112). Pure tested core in `model/bomsheet.ts`.
-- **Matched to the engineer's real BOM sheet** (2026-07-08): the table is a centred block ~0.65 of the
-  draw-area width (not full-width), with DESCRIPTION dominant and MANUFACTURER/MODEL/QTY slim
-  (`0.13 / 0.57 / 0.12 / 0.12 / 0.06`); heading reads "BILL OF MATERIALS". No **Total-parts** row on the
-  drawing sheet (the real sheet doesn't carry one — the total is still in the on-screen dialog + CSV).
+All three phases shipped and in real use, deployed on Cloudflare Pages + Render + Supabase and twice
+security-reviewed. This release is the hardening pass that made the tool trustworthy in production:
+real device linework in every export, a fix for the large-project export freeze, the company title
+block rebuilt 1:1 from the measured template, an audit trail, and a fail-closed, CSP-guarded service.
 
-### Added — BOM in the DXF too (complete CAD drawing set)
-- **The exported DXF now carries the BOM as its own paper-space layout tab** ("BOM", or "BOM 1…N" when
-  it paginates) — the same AMR frame + title block as the "A3 SHEET" layout, with the BOM table laid
-  out in the draw area. Open either tab in GstarCAD and plot: the single .dxf is now the whole set
-  (layout sheet + BOM sheet), not just the geometry.
-- The BOM **count stays the single tested TS core** (`buildBom`): the frontend sends the already
-  aggregated + ITEM NO.-collapsed rows in the export payload; the service only lays them out (never
-  re-counts). The table layout mirrors `model/bomsheet.ts` in `dxf_build.py`, sharing the frame/title
-  block with the layout sheet via one `_sheet_chrome` helper.
-- Widened the description word-wrap estimate (`CHAR_W` 0.62 → 0.68) so long all-caps lines stay inside
-  their column in **true-Arial** DXF (and PDF), applied identically in both renderers.
-- **Smaller BOM row font** (2.6 → 2.0 mm; line pitch + header sized to match) so the table reads like
-  the engineer's real sheet — dense, with long descriptions comfortably inside the DESCRIPTION column
-  (verified against real arial.ttf metrics: the longest line ≈ 104 mm in a 138 mm column).
-- **Heading is just "BILL OF MATERIALS"** — dropped the "— PAGE n OF m" suffix on multi-page runs
-  (PDF and DXF). Pagination still happens; the pages simply aren't numbered in the heading.
+### Added — real device linework in PDF/PNG/SVG exports
+- **Uploaded parts no longer export as bare rectangles.** The vector drawing captured at upload
+  (`svg_ref` — the same one the editor canvas overlays) is now embedded into the export renderer,
+  scaled/rotated onto each part's footprint: PDFs carry the part's real linework as vectors, like a
+  monochrome plot from GstarCAD. Applies to placed elements AND set members/caps; PNG/SVG get it too.
+- Styled like a monochrome CAD plot: the ezdxf screen background is stripped, every stroke/fill maps
+  to print black, white fills stay white (masks). Per-instance class/id namespacing so repeated parts
+  can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
+- Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged. Embedded part SVGs are
+  sanitized against stored XSS (strips `<script>`, `on*=`, `javascript:`, `<foreignObject>`).
+
+### Added — audit log / activity trail
+- **Who did what, when.** Every create / save / duplicate / delete / share / revoke on a cloud project
+  is recorded (append-only `project_events`), shown as an **Activity** trail in the project's History
+  dialog (⟲ in the Open list) beneath the restorable saves. Written best-effort by the client (never
+  fails the operation it records), actor resolved from the session.
+- Deletes stay auditable: the event is logged *before* the delete and the FK nulls its `project_id`,
+  so a removed project's history survives (with its name snapshotted). No update/delete policies —
+  the trail is append-only.
+- **Action needed once:** re-run `supabase/schema.sql` (adds `project_events` + RLS; idempotent).
 
 ### Changed — drawing sheet now matches the company template 1:1 (measured)
 - The engineer provided the real **Template.dxf**; the sheet spec is now **measured, not estimated**
@@ -87,24 +62,6 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   ~5.5 MB** before, page compose 10 ms, svg2pdf **0.95 s** (was: freeze), PDF 305 KB — with the
   linework verified rendering in the PDF, the PNG path and the share viewer.
 
-### Added — real device linework in PDF/PNG/SVG exports
-- **Uploaded parts no longer export as bare rectangles.** The vector drawing captured at upload
-  (`svg_ref` — the same one the editor canvas overlays) is now embedded into the export renderer,
-  scaled/rotated onto each part's footprint: PDFs carry the part's real linework as vectors, like a
-  monochrome plot from GstarCAD. Applies to placed elements AND set members/caps; PNG/SVG get it too.
-- Styled like a monochrome CAD plot: the ezdxf screen background is stripped, every stroke/fill maps
-  to print black, white fills stay white (masks). Per-instance class/id namespacing so repeated parts
-  can't collide. Parse failure falls back to the plain rectangle — never a broken drawing.
-- Pure tested core `render/embedSvg.ts`; rect/custom/label parts unchanged.
-
-### Security — Content-Security-Policy + security headers (hardening M3)
-- **`web/public/_headers`** ships a strict CSP (`script-src 'self'` — no `unsafe-inline`/`unsafe-eval`),
-  plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and HSTS. This is
-  the real backstop for the anonymous share viewer (blocks script execution even if the SVG sanitizer
-  ever misses a vector). Verified locally under the exact CSP: app boots clean and all four export
-  paths (SVG/PNG/PDF/BOM-PDF) run with zero violations. `connect-src`/OAuth/share-viewer-PDF are to be
-  confirmed on a Cloudflare preview. (RISK_REVIEW R3 M3.)
-
 ### Security — service fails closed + block-id validated everywhere (hardening M1+M2)
 - **Fail-closed auth.** A new `REQUIRE_AUTH=1` env flag makes a missing `SUPABASE_JWT_SECRET` a hard
   **503**, so a dropped secret on redeploy can no longer silently open `/upload` · `/export` · `/block`.
@@ -116,15 +73,27 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   the check the `/block/{id}` route already had — a traversal `block_ref` now returns a clean **400**,
   never a file read or a 500. Verified end-to-end + harness-tested. (RISK_REVIEW R3 M1/M2.)
 
-### Added — audit log / activity trail
-- **Who did what, when.** Every create / save / duplicate / delete / share / revoke on a cloud project
-  is recorded (append-only `project_events`), shown as an **Activity** trail in the project's History
-  dialog (⟲ in the Open list) beneath the restorable saves. Written best-effort by the client (never
-  fails the operation it records), actor resolved from the session.
-- Deletes stay auditable: the event is logged *before* the delete and the FK nulls its `project_id`,
-  so a removed project's history survives (with its name snapshotted). No update/delete policies —
-  the trail is append-only.
-- **Action needed once:** re-run `supabase/schema.sql` (adds `project_events` + RLS; idempotent).
+### Security — Content-Security-Policy + security headers (hardening M3)
+- **`web/public/_headers`** ships a strict CSP (`script-src 'self'` — no `unsafe-inline`/`unsafe-eval`),
+  plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and HSTS. This is
+  the real backstop for the anonymous share viewer (blocks script execution even if the SVG sanitizer
+  ever misses a vector). Verified locally under the exact CSP: app boots clean and all four export
+  paths (SVG/PNG/PDF/BOM-PDF) run with zero violations. (RISK_REVIEW R3 M3.)
+
+## [0.6.0] — 2026-07-14 — portable & shareable (Phase 3)
+
+Phase 3 complete: a drawing no longer has to live in the cloud to leave with you, and a saved layout
+can be shared read-only with anyone — no account required.
+
+### Added — portable bundle export (Phase 3, part 1)
+- **Bundle** button in the toolbar downloads `<name>.bundle.zip`: the layout JSON (the exact same
+  envelope the ⬇/⬆ buttons use, so it re-imports directly) plus the **raw DXF of every placed uploaded
+  part** (elements, set members, set caps — deduped) and a README. Nothing about a drawing stays
+  trapped in a cloud bucket — "free + portable, every layer" (CLAUDE.md §5).
+- New service endpoint `GET /block/{id}` serves a retained equipment DXF (auth-guarded like /export;
+  id regex-validated — traversal-safe; clean 404 with a re-upload hint when a block is gone). A missing
+  block fails the bundle loudly rather than shipping an incomplete ZIP.
+- Pure tested core `model/bundle.ts` (manifest + ZIP-safe names); `test_block.py` harness runs in CI.
 
 ### Added — read-only share links (Phase 3, part 2 — Phase 3 complete)
 - **Share** button (on a saved cloud project) creates a revocable link — `?share=<token>` — that anyone
@@ -137,22 +106,68 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Action needed once:** re-run `supabase/schema.sql` (adds `projects.share_token` + the
   `shared_project` RPC).
 
-### Added — portable bundle export (Phase 3, part 1)
-- **Bundle** button in the toolbar downloads `<name>.bundle.zip`: the layout JSON (the exact same
-  envelope the ⬇/⬆ buttons use, so it re-imports directly) plus the **raw DXF of every placed uploaded
-  part** (elements, set members, set caps — deduped) and a README. Nothing about a drawing stays
-  trapped in a cloud bucket — "free + portable, every layer" (CLAUDE.md §5).
-- New service endpoint `GET /block/{id}` serves a retained equipment DXF (auth-guarded like /export;
-  id regex-validated — traversal-safe; clean 404 with a re-upload hint when a block is gone). A missing
-  block fails the bundle loudly rather than shipping an incomplete ZIP.
-- Pure tested core `model/bundle.ts` (manifest + ZIP-safe names); `test_block.py` harness runs in CI.
+## [0.5.0] — 2026-07-10 — drawing sheets
+
+Exports stop being bare geometry and become real drawing sheets: the company frame + title block on
+PDF/PNG **and** as paper-space layout tabs in the DXF, a printable BOM sheet, correct CAD text sizing,
+and Thai title support.
+
+### Added — drawing sheets: frame + AMR title block on every export
+- **Exports are now drawing sheets, not bare geometry.** PDF/PNG compose the real AMR sheet template
+  (reproduced from the engineer's shop drawings): border + **zone grid** (1–10 / A–F), and the full
+  bottom band — REFERENCE DRAWING NO./DESCRIPTION table, REMARK, REV/DATE/DESCRIPTION history,
+  BY/CHK/ENG/APPR initials, DESIGNER/CLIENT/TITLE, and the SCALE · PROJECT NO. · DRAWING NO. ·
+  SHEET · REV. cells. The **computed scale** (e.g. 1:10) prints in the SCALE cell.
+- **DXF gets a paper-space "A3 SHEET" layout tab** — frame + title block at true paper mm and a
+  **viewport** onto the plate at the nearest standard scale (1:1…1:100). Model space is untouched
+  (blocks stay countable); open the layout tab in GstarCAD for a plot-ready sheet.
+- **Title-block fields** (title line 2, project/drawing/sheet no., rev + date + description,
+  BY/CHK/ENG/APPR, client, designer) are edited in the Plate panel, save with the project, and print
+  blank when unset — never invented.
+- **Sheets are always landscape** (house style) — a tall plate prints smaller instead of flipping the
+  page to portrait. **Zone references** are drawn **once** — numbers along the top, letters down the
+  left — and the drawing keeps a **≥10 mm gap** from the frame/band on all sides.
+
+### Added — BOM as a printable drawing sheet (PDF)
+- The BOM dialog now downloads a **multi-page vector PDF of real drawing sheets**: the AMR frame +
+  title block with the BOM table (ITEM NO. · DESCRIPTION · MANUFACTURER · MODEL · QTY) laid out in the
+  draw area. Long cells word-wrap and grow their row; rows **paginate** when the page fills, the column
+  header repeats on every page, and multi-page runs are numbered ("PAGE 2 OF 3"). Uses the app's paper
+  choice (A4/A3, landscape); the SCALE cell prints "-" (a BOM sheet has no scale). CSV export stays.
+- Same data rules as the table: "-" for unentered fields, "*" marks unconfirmed size estimates, tag
+  runs collapse to ranges (B101-B112). Pure tested core in `model/bomsheet.ts`.
+- **Matched to the engineer's real BOM sheet** (2026-07-08): the table is a centred block ~0.65 of the
+  draw-area width, DESCRIPTION dominant and MANUFACTURER/MODEL/QTY slim; heading reads "BILL OF
+  MATERIALS". No Total-parts row on the drawing sheet (the total stays in the on-screen dialog + CSV).
+
+### Added — BOM in the DXF too (complete CAD drawing set)
+- **The exported DXF now carries the BOM as its own paper-space layout tab** ("BOM", or "BOM 1…N" when
+  it paginates) — the same AMR frame + title block as the "A3 SHEET" layout, with the BOM table laid
+  out in the draw area. Open either tab in GstarCAD and plot: the single .dxf is now the whole set
+  (layout sheet + BOM sheet), not just the geometry.
+- The BOM **count stays the single tested TS core** (`buildBom`): the frontend sends the already
+  aggregated + ITEM NO.-collapsed rows in the export payload; the service only lays them out (never
+  re-counts). The table layout mirrors `model/bomsheet.ts` in `dxf_build.py`, sharing the frame/title
+  block with the layout sheet via one `_sheet_chrome` helper.
+- **Smaller BOM row font** (2.6 → 2.0 mm) and a widened word-wrap estimate so long all-caps lines stay
+  inside their column in true-Arial DXF and PDF; heading is just "BILL OF MATERIALS".
 
 ### Changed — App.tsx split into focused modules (hardening #8, part 1)
 - Pure refactor, no behaviour change: the 1190-line shell is now ~500 lines of state + wiring, with
   the views extracted to `editor/Toolbar`, `editor/LibrarySidebar`, `editor/PropertiesPanel`,
   `editor/OpenDialog`, and the cloud project handlers (open/save/duplicate/folders/history +
   stale-save guard) grouped into a `store/useCloudProjects` hook. Verified by a browser smoke test
-  (add/delete part, duct, zoom, panel switching — no console errors) plus all checks.
+  plus all checks.
+
+### Fixed — GstarCAD text overlap on the DXF sheets (cap-height vs em-size)
+- **Root cause:** DXF TEXT height means **capital-letter height** in AutoCAD/GstarCAD (TrueType rule),
+  while the browser's `font-size` means **em size** — Arial caps are only ~0.72 em. The same "2.0mm"
+  therefore rendered ~1.4× larger *and wider* in CAD, pushing long BOM descriptions through the
+  MANUFACTURER border, even though the PDF was clean.
+- **Fix:** paper-space sheet text (title block + zone labels + BOM table) converts its em-spec heights
+  by `ARIAL_CAP_PER_EM` (0.716) in one place (`dxf_build._sheet_chrome`), so the DXF layout tabs now
+  render **identically to the PDF sheets** and the wrap budget holds in CAD. Model-space text is
+  untouched. Harness asserts the conversion (2.0mm rows land as 1.432mm TEXT height).
 
 ### Fixed — Thai titles in the PDF exports (embedded Sarabun font)
 - **A Thai project name/title garbled in the exported PDF** — jsPDF's built-in fonts are Latin-only
@@ -161,100 +176,128 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
   contain Thai opt into the bundled **Sarabun** (OFL, the standard Thai document font) — so a
   Latin-only sheet is pure Arial/Helvetica (no font embedded), and a Thai title embeds just the
   Sarabun subset it needs.
-- Verified end-to-end in a real browser through the real export pipeline: a Latin-only PDF contains
-  zero Sarabun (14.7 KB, Helvetica), while a Thai-title PDF embeds Sarabun as a Type0 CID font with a
-  ToUnicode CMap whose glyphs decode back to the correct Thai codepoints (title block screenshot
-  confirms rendering). The DXF stores Thai intact through a write/read round-trip (harness-asserted)
-  — CAD renders it with its own font substitution.
-- License file ships alongside the font (`web/src/assets/Sarabun-OFL.txt`).
+- Verified end-to-end in a real browser: a Latin-only PDF contains zero Sarabun (14.7 KB, Helvetica),
+  while a Thai-title PDF embeds Sarabun as a Type0 CID font whose glyphs decode back to the correct
+  Thai codepoints. The DXF stores Thai intact through a write/read round-trip (harness-asserted).
+  License file ships alongside the font (`web/src/assets/Sarabun-OFL.txt`).
 
-### Fixed — GstarCAD text overlap on the DXF sheets (cap-height vs em-size)
-- **Root cause:** DXF TEXT height means **capital-letter height** in AutoCAD/GstarCAD (TrueType rule),
-  while the browser's `font-size` means **em size** — Arial caps are only ~0.72 em. The same "2.0mm"
-  therefore rendered ~1.4× larger *and wider* in CAD, pushing long BOM descriptions through the
-  MANUFACTURER border (and into plots made from CAD), even though the PDF was clean.
-- **Fix:** paper-space sheet text (title block + zone labels + BOM table) converts its em-spec heights
-  by `ARIAL_CAP_PER_EM` (0.716) in one place (`dxf_build._sheet_chrome`), so the DXF layout tabs now
-  render **identically to the PDF sheets** and the wrap budget holds in CAD. Model-space text (part
-  tags, duct labels, row dims) is untouched — those were calibrated in CAD terms from real drawings.
-- Harness asserts the conversion (2.0mm rows land as 1.432mm TEXT height; raw em heights are rejected).
+## [0.4.0] — 2026-07-06 — real shop tool
 
-### Hardening (RISK_REVIEW R4–R6)
-- **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
-  huge/wrong file can't OOM the free-tier instance for everyone. (R4)
-- **Safer shared-part delete** — the delete confirm now warns that a **shared** part may be used by
-  *other* saved projects (their placements would break), and the current-layout check now includes set
-  caps. (R5)
-- **Orphan cleanup on save** — unplaced per-instance label-plate/custom parts are dropped from the saved
-  project (they used to accumulate forever); uploaded parts are always kept even if not yet placed. (R6)
+The editor grows into an everyday panel-shop tool: a shop-format Bill of Materials, multi-user safety
+nets (nothing silently lost or clobbered), duplicate/branch, terminal-set caps and insert-into-row,
+CAD-style bulk selection, folders, and a first hardening pass.
 
-### Added — folders for layouts
-- Group layouts into **team-shared folders** (one level) — e.g. all the cabinets of one job under
-  "Job X". The **Open dialog is now grouped**: collapsible folder sections (with a count) + an **Unfiled**
-  section, ordered by most-recent activity (the folder you last touched floats up). **+ New folder**,
-  rename (✎) / delete (✕, layouts move to Unfiled — never deleted), and a per-layout **▾ move** dropdown.
-- Duplicating a layout keeps it in the same folder; **New** starts Unfiled. Nightly backup includes folders.
-- Needs a one-time `supabase/schema.sql` re-run (adds `folders` + `projects.folder_id` + RLS).
+### Added — BOM (Bill of Materials)
+- **BOM toolbar button** opens a parts list shaped to the shop-drawing BOM —
+  **ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY**. Every placed element counts 1,
+  a set of N counts N (its auto-tags B101… expand into ITEM NO.), aggregated by part. Locked stopper+label
+  pairs tally as the stopper plus one collapsed **"Label for stopper"** line; unconfirmed sizes flagged (`*`).
+- **Per-part BOM data** — `manufacturer` / `model` / `description` are entered in the upload dialog and
+  editable later, either on a selected placed part (the panel's "BOM details") or via the library's **✎ Edit
+  part** dialog. Human-entered, never invented (CLAUDE.md §0); unentered fields show **"-"**. Shared parts
+  persist them in `library_items` (re-run `supabase/schema.sql` once to add the columns).
+- **Manual BOM-only rows** — items **not on the plate** (RTU cabinet, name plates, lamp/fluorescent, fans,
+  outlets); they merge in after the counted device rows and into the CSV, and save with the project.
+- **ITEM NO. collapses consecutive tags to ranges** — a run of 3+ consecutive tags shows as `first-last`
+  (`R101…R111` → `R101-R111`; `1…16` → `1-16`). **Download CSV** (Excel-friendly) for ordering.
+  Deterministic, derived only from the model — the pure core (`model/bom.ts`) is unit-tested, no AI.
 
-### Changed — parts listed alphabetically
-- Every part list — the sidebar under each category, **ADD A SET**, the start/end **cap** pickers, and
-  the **Insert beside** dialog — now sorts **A→Z by name** (numeric-aware, case-insensitive) instead of
-  by the order parts were added. Presentation only; nothing about the model/exports changes.
+### Added — DIN-rail alignment from the DXF origin
+- **Uploaded devices remember their own 0,0 as the rail datum.** The service reads the DXF origin at upload
+  and derives the **rail offset** (top→origin), so a row of different-height devices aligns by their **DIN-rail
+  hook line** instead of by bounding-box centre. The upload dialog shows a **"Rail line (mm from top)"** field
+  (pre-filled from the origin, editable); it falls back to centre when the origin lands outside the outline.
+  (No AI — a measured geometric datum, human-confirmed.)
 
-### Added — bulk selection (marquee, select-row, Ctrl+A)
-- **Shift+drag rubber-band selection** with the CAD window/crossing rule: drag **left→right** (solid
-  blue) selects only what's **fully inside**; **right→left** (dashed green) selects anything **touched**
-  — GstarCAD muscle memory. Sweeps are additive (union), plain drag still pans, and the box picks up
-  devices + labels only (never wire ducts).
-- **⬌ Select row** (element/set panels) — one click selects every device sharing the anchor's DIN-rail
-  line, plus their labels; then arrow-nudge or delete the pack. No more shift+clicking 100 objects.
-- **Ctrl+A** selects all devices+labels; **Esc** clears the selection.
-
-### Added — set caps (end covers) & insert-into-row
-- **Sets can start/end with a cap device** (e.g. a D-DS2.5 end cover on a DS2.5 strip): pick optional
-  **start/end** parts in the Add-a-set form, or add them to a **set already placed** (Set panel).
-  Caps are part of the set — they move/rotate/pack/delete with it, sit **rail-aligned** to the members,
-  count in the BOM (untagged, 1 per side), export as their own countable DXF blocks, and survive Explode.
-- **⇤⇥ Insert beside…** (element + set panels) replaces the shift+click-a-dozen-slim-parts workflow:
-  pick a part, side (left/right) and quantity in a small dialog — the row **shifts open automatically**
-  (downstream only; cluster spacing, whole sets and locked pairs preserved; locked parts stay put) and
-  the new part drops in flush, rail-aligned to the anchor. One undo step.
-- Editor canvas now draws each set member/cap outline (matching the exports), not just one blank box.
-
-### Added — duplicate a project
-- **Duplicate** (toolbar, cloud) forks the **current** layout — including unsaved edits — into a brand-new
-  project (prompts for a name, default "Copy of …"), then switches you onto the copy; the original row is
-  left untouched. A clean "branch my work" without saving over the original.
-- **⧉ per row in the Open dialog** copies a **saved** project into a new one *without opening it* (for
-  template copies). Both reuse the normal insert path — no schema change; project-local parts ride along,
-  shared parts stay shared.
+### Added — unsaved-changes guard (RISK_REVIEW R2)
+- **You can no longer silently lose work.** The editor tracks unsaved changes (an **"● unsaved"**
+  chip shows in the toolbar) and warns before every discard path: closing/reloading the tab
+  (`beforeunload`), **New**, and **Open** (cloud or file). Undoing back to the last-saved state reads
+  as clean again.
+- **Crash-safe draft** — while dirty, a working copy is written to `localStorage` (debounced 2 s). On
+  the next launch you're offered a restore; a restored draft stays *unsaved* until you actually Save.
 
 ### Added — multi-user safety (RISK_REVIEW R3)
 - **Stale-save guard** — projects are team-shared with last-write-wins, so two people could silently
   clobber each other. Save now does a **compare-and-set** against the version you opened; if someone
   saved in between, you're warned (**"⚠ <name> saved this at <time>, after you opened it"**) and choose
   to **overwrite** or **keep your work unsaved** (nothing lost — you can ⬇ download or Open theirs).
-- **"saved by <name> <when>"** shows in the top bar (after open/save) and on every row of the Open list,
-  so you can see who touched a layout last before you edit it.
+- **"saved by <name> <when>"** shows in the top bar and on every row of the Open list, so you can see
+  who touched a layout last before you edit it.
 
-### Added — unsaved-changes guard (RISK_REVIEW R2)
-- **You can no longer silently lose work.** The editor tracks unsaved changes (an **"● unsaved"**
-  chip shows in the toolbar) and warns before every discard path: closing/reloading the tab
-  (`beforeunload`), **New**, and **Open** (cloud or file) — Open previously discarded edits with
-  no warning at all. Undoing back to the last-saved state reads as clean again.
-- **Crash-safe draft** — while dirty, a working copy (model + project-local parts) is written to
-  `localStorage` (debounced 2 s). On the next launch you're offered a restore; a restored draft
-  stays *unsaved* until you actually Save. Cleared on save/open/new; the JSON ⬇ download also
-  counts as a save (it's the local-mode save).
+### Added — duplicate a project
+- **Duplicate** (toolbar, cloud) forks the **current** layout — including unsaved edits — into a brand-new
+  project (prompts for a name, default "Copy of …"), then switches you onto the copy; the original row is
+  left untouched. **⧉ per row in the Open dialog** copies a **saved** project without opening it (template
+  copies). Both reuse the normal insert path — no schema change.
+
+### Added — set caps (end covers) & insert-into-row
+- **Sets can start/end with a cap device** (e.g. a D-DS2.5 end cover on a DS2.5 strip): pick optional
+  **start/end** parts in the Add-a-set form, or add them to a **set already placed**. Caps are part of the
+  set — they move/rotate/pack/delete with it, sit **rail-aligned**, count in the BOM (untagged, 1 per side),
+  export as their own countable DXF blocks, and survive Explode.
+- **⇤⇥ Insert beside…** (element + set panels): pick a part, side (left/right) and quantity in a small
+  dialog — the row **shifts open automatically** (downstream only; cluster spacing, whole sets and locked
+  pairs preserved; locked parts stay put) and the new part drops in flush, rail-aligned to the anchor.
+
+### Added — bulk selection (marquee, select-row, Ctrl+A)
+- **Shift+drag rubber-band selection** with the CAD window/crossing rule: drag **left→right** (solid
+  blue) selects only what's **fully inside**; **right→left** (dashed green) selects anything **touched**
+  — GstarCAD muscle memory. Sweeps are additive; the box picks up devices + labels only (never wire ducts).
+- **⬌ Select row** — one click selects every device sharing the anchor's DIN-rail line, plus their labels.
+  **Ctrl+A** selects all devices+labels; **Esc** clears the selection.
+
+### Added — folders for layouts
+- Group layouts into **team-shared folders** (one level) — e.g. all the cabinets of one job under
+  "Job X". The **Open dialog is now grouped**: collapsible folder sections (with a count) + an **Unfiled**
+  section, ordered by most-recent activity. **+ New folder**, rename (✎) / delete (✕, layouts move to
+  Unfiled — never deleted), and a per-layout **▾ move** dropdown.
+- Needs a one-time `supabase/schema.sql` re-run (adds `folders` + `projects.folder_id` + RLS).
+
+### Added — project history + nightly backup (RISK_REVIEW R1)
+- **Every Save keeps a revision** (`project_revisions`, last 20 per project, DB-trimmed). The Open
+  dialog's **⟲ History** lists them; **Restore loads that version into the editor as *unsaved* work** —
+  the live project is untouched until you Save. One bad save no longer destroys a drawing. Re-run
+  `supabase/schema.sql` once.
+- **Nightly backup** (`.github/workflows/backup.yml`) dumps projects + shared library + allowlist to a
+  **private** Supabase Storage bucket `backups`, rotating by day-of-month. Needs the `backups` bucket +
+  a `SUPABASE_SERVICE_KEY` Actions secret (kept out of GitHub artifacts — the repo is public).
+
+### Changed — part tags match the shop drawings
+- **Smaller, centered, horizontal part tags.** Tags were a fixed 10 mm and rotated 90° when wider than the
+  part. They're now **3.5 mm** by default and **2.5 mm** for the **Terminal-blocks** category — centered
+  just above each part, never rotated, and shrunk to fit if a tag would overflow a narrow part. Applied
+  identically in the editor, SVG/PDF/PNG, and DXF.
+- **Sets are auto-numbered in place** — a set with a tag start now draws its member tags (`B101…B112`,
+  `RM1…RM4`) directly, so you no longer have to **explode** it to get the numbers.
+- **Label-plate text stays inside the plate** — a long marker no longer overflows past the ends of its
+  label plate (vertical text fit to the plate, shrinking as needed).
 
 ### Changed — top-bar tidy-up
-- **Project name reads as an editable field** — it's now a bordered box with a ✎ pencil and an
-  "Untitled project" placeholder, instead of looking like static grey text.
-- **Toolbar regrouped by purpose** — File · History · View (zoom + Align) · Export (DXF /
-  PDF-PNG-SVG-BOM) · and Help + status + account pushed to the far right. Same buttons, clearer order.
-- **Removed "Snap 1mm"** — a coarse whole-mm drag grid that was off by default and superseded by **Align**
-  (adjacent + rail snap), typed X/Y, and 1 mm arrow-nudge. Dropped to declutter (and it fought the 0.1 mm
-  gap precision). Positioning is unchanged via those three.
+- **Project name reads as an editable field** — a bordered box with a ✎ pencil and an "Untitled project"
+  placeholder, instead of static grey text.
+- **Toolbar regrouped by purpose** — File · History · View · Export · Help + status + account. Same
+  buttons, clearer order. **Removed "Snap 1mm"** (a coarse whole-mm drag grid superseded by Align, typed
+  X/Y, and 1 mm arrow-nudge).
+
+### Changed — parts listed alphabetically
+- Every part list — the sidebar under each category, **ADD A SET**, the start/end **cap** pickers, and
+  the **Insert beside** dialog — now sorts **A→Z by name** (numeric-aware, case-insensitive) instead of
+  by the order parts were added. Presentation only.
+
+### Hardening (RISK_REVIEW R4–R6)
+- **Upload size cap** — the DXF service reads in chunks and rejects anything over **20 MB** (413), so a
+  huge/wrong file can't OOM the free-tier instance for everyone. (R4)
+- **Safer shared-part delete** — the delete confirm warns that a **shared** part may be used by *other*
+  saved projects, and the current-layout check now includes set caps. (R5)
+- **Orphan cleanup on save** — unplaced per-instance label-plate/custom parts are dropped from the saved
+  project; uploaded parts are always kept even if not yet placed. (R6)
+
+## [0.3.0] — 2026-06-09 — goes multi-user (Phase 2 foundation)
+
+The tool becomes a team tool: Supabase auth behind an email allowlist, cloud-saved projects, a durable
+shared equipment library backed by Storage, and the AMR house-style library reorganization — while
+still degrading to a pure local editor with no backend.
 
 ### Added (Slice 1 — auth + cloud-saved projects)
 - **Supabase auth** with an **email allowlist** (RLS-enforced): sign in with GitHub/Google; only
@@ -274,70 +317,25 @@ _This is the Phase-2 continuation repo (duplicated with full history from cabine
 - **Secured service** — `/upload` and `/export` validate the Supabase JWT when `SUPABASE_JWT_SECRET` is
   set (open in local dev). The frontend sends the bearer token.
 
-### Changed — part tags match the shop drawings
-- **Smaller, centered, horizontal part tags.** Tags were a fixed 10 mm and rotated 90° when wider than the
-  part (giant vertical `R101`). They're now **3.5 mm** by default and **2.5 mm** for the **Terminal-blocks**
-  category — centered just above each part, never rotated, and shrunk to fit if a tag would overflow a narrow
-  part so it never overlaps a neighbour. Applied identically in the editor, SVG/PDF/PNG, and DXF. (Sizes are
-  constants — easy to tune.)
-- **Sets are auto-numbered in place** — a set (group) with a tag start now draws its member tags
-  (`B101…B112`, `RM1…RM4`) directly, so you no longer have to **explode** it to get the numbers. Editor,
-  SVG/PDF/PNG and DXF all match, and the numbers equal what an explode would bake in.
-- **Label-plate text stays inside the plate** — a long marker (e.g. "WARNING-LAMP") no longer overflows
-  past the ends of its label plate. The vertical text is now fit to the plate (length to the height, glyph
-  to the width), shrinking as needed. Editor, SVG/PDF/PNG and DXF match.
-
 ### Changed (library reorg — AMR house style)
 - **Empty starting library** — the editor opens on a **blank plate** and the palette categories start
-  empty; you build the library by **uploading** parts. (The old seed parts remain only as a test fixture.)
+  empty; you build the library by **uploading** parts.
 - **Categories** are now: 1 Power & protection · 2 Control & comms · 3 Relays · 4 Terminal blocks ·
-  5 Ground bar · **6 Stopper** · **7 Slim Stopper** · **8 Accessories** ("Power distribution" removed;
-  Accessories is a catch-all for misc parts — glands, brackets, markers). Empty categories still show so
-  the structure is visible.
+  5 Ground bar · 6 Stopper · 7 Slim Stopper · 8 Accessories. Empty categories still show so the
+  structure is visible.
 - **Upload picks a category** (dropdown in the confirm modal); shared uploads store it (`library_items.band`
-  — re-run `supabase/schema.sql` once to add the column). Stopper / Slim-Stopper category = the BOM "type".
+  — re-run `supabase/schema.sql` once to add the column).
 - **Stopper with Label → "Add label plate"** — select a placed stopper-category part and drop a same-size
-  label plate on it as a locked pair (replaces the old fixed Stopper / Stopper-with-Label buttons).
+  label plate on it as a locked pair.
 
 ### Fixed (labelled-stopper readability + sidebar tooltip)
 - **Labelled stoppers read in CAD** — the DXF export now masks a labelled stopper's geometry with a
-  `WIPEOUT` so the centered marker is visible in GstarCAD (previously the stopper block drew over it).
-- **Label faces the other way** — the marker text is rotated 180° from before (now `rot + 90`) in the
+  `WIPEOUT` so the centered marker is visible in GstarCAD.
+- **Label faces the other way** — the marker text is rotated 180° from before (now `rot + 90`) across the
   editor, SVG/PDF/PNG and DXF, so all paths agree.
 - **Sidebar tooltip** shows the part **name** (plus its size) when hovering a library part.
-- **Pack / centre keep a label plate locked to its stopper** — a row's auto-pack (and the ↕ centre,
-  and overflow counting) no longer treats a coincident label plate as its own device, so it stays on
-  top of its stopper instead of sliding into a separate slot beside it.
-
-### Added — DIN-rail alignment from the DXF origin
-- **Uploaded devices remember their own 0,0 as the rail datum.** The service reads the DXF origin at upload
-  and derives the **rail offset** (top→origin), so a row of different-height devices aligns by their **DIN-rail
-  hook line** instead of by bounding-box centre. The upload dialog shows a **"Rail line (mm from top)"** field
-  (pre-filled from the origin, editable); it falls back to centre when the origin lands outside the outline.
-  Still tunable later via the panel's "Rail offset". (No AI — a measured geometric datum, human-confirmed.)
-
-### Added — BOM (Bill of Materials)
-- **BOM toolbar button** opens a parts list shaped to the shop-drawing BOM —
-  **ITEM NO. (equipment tags) · DESCRIPTION · MANUFACTURER · MODEL · QTY**. Every placed element counts 1,
-  a set of N counts N (its auto-tags B101… expand into ITEM NO.), aggregated by part. Locked stopper+label
-  pairs tally as the stopper plus one collapsed **"Label for stopper"** line; unconfirmed sizes flagged (`*`).
-- **Per-part BOM data** — `manufacturer` / `model` / `description` are entered in the upload dialog and
-  editable later, either on a selected placed part (the panel's "BOM details") or via the library's **✎ Edit
-  part** dialog (name · category · **rail line** · manufacturer · model · description — the same fields as upload,
-  and the Edit dialog persists the rail line to the shared catalog too). Human-entered,
-  never invented (CLAUDE.md §0); unentered fields show **"-"**. Shared parts persist them in `library_items`
-  (re-run `supabase/schema.sql` once to add the columns).
-- **Manual BOM-only rows** — the BOM dialog now has an editable list for items **not on the plate**
-  (RTU cabinet, name plates, lamp/fluorescent, fans, outlets): Item No · Description · Manufacturer ·
-  Model · Qty. They merge in after the counted device rows and into the CSV, and save with the project.
-- **ITEM NO. collapses consecutive tags to ranges** — a run of 3+ consecutive tags shows as `first-last`
-  (`R101, R102, … R111` → `R101-R111`; `1…16` → `1-16`), keeping singletons/pairs listed. Big space saver
-  in the BOM table and CSV.
-- **Download CSV** (Excel-friendly) for ordering. Deterministic, derived only from the model — the pure
-  core (`model/bom.ts`) is unit-tested, no AI (CLAUDE.md §0/§5).
-
-_Roadmap (deferred, see [ROADMAP.md](ROADMAP.md)): multi-user safety (last-saved-by + overwrite guard),
-audit log, harden + custom domain, Phase 3 share-link + bundle._
+- **Pack / centre keep a label plate locked to its stopper** — a row's auto-pack, the ↕ centre, and
+  overflow counting no longer treat a coincident label plate as its own device.
 
 ## [0.2.0] — 2026-06-06
 
@@ -389,6 +387,11 @@ plus PDF/PNG/SVG, all rendered from one JSON model.
 - Library dimensions marked `confirm:true` are estimates pending datasheet/DXF measurement; the IDEC
   FC6A-D16 was measured from its DXF at 70.19 × 103.29 mm.
 
-[Unreleased]: https://github.com/Taamrock04/cabinet-layout-generator/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/Taamrock04/cabinet-layout-generator/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Taamrock04/cabinet-layout-generator/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.6.0...v1.0.0
+[0.6.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Taam4142/cabinet-layout-generator-v2/releases/tag/v0.1.0
