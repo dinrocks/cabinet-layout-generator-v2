@@ -1,0 +1,80 @@
+name: Deploy Chinese Web to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Prepare standalone Chinese edition
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('web/src/App.tsx')
+          s = p.read_text()
+          s = s.replace('import { newModel } from "./model/factory";', 'import { newModel } from "./model/factory";\nimport { SEED_LIBRARY } from "./model/library";')
+          s = s.replace('useState<Library>(() => ({})); // empty; populated by uploads', 'useState<Library>(() => ({ ...SEED_LIBRARY })); // standalone edition includes the built-in Chinese parts catalog')
+          s = s.replace('setLibrary({ ...sharedLib }); // keep the shared catalog available', 'setLibrary({ ...SEED_LIBRARY, ...sharedLib }); // keep built-in + shared catalog available')
+          s = s.replace('Restore your unsaved draft', '恢复未保存的草稿')
+          s = s.replace('Start a new layout? Unsaved changes will be lost.', '确定新建布局吗？当前未保存的修改将丢失。')
+          s = s.replace('Open another layout? Unsaved changes here will be lost.', '确定打开其他布局吗？当前未保存的修改将丢失。')
+          s = s.replace("Couldn't read that file.", '无法读取该文件。')
+          s = s.replace("Couldn't insert — part or anchor not found.", '无法插入：未找到元器件或定位对象。')
+          s = s.replace('<h3>Welcome 👋</h3>', '<h3>欢迎 👋</h3>')
+          s = s.replace('Pick a display name your teammates will see on shared layouts.', '设置一个显示名称，团队成员将在共享布局中看到它。')
+          s = s.replace('placeholder="e.g. Natchanon K."', 'placeholder="例如：蓝木"')
+          s = s.replace('>Save</button>', '>保存</button>')
+          p.write_text(s)
+          PY
+
+      - name: Type check
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Build Pages site
+        working-directory: web
+        env:
+          GITHUB_PAGES: 'true'
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
