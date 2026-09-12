@@ -1,17 +1,13 @@
 /**
- * Seed equipment library + house-style constants, from 05_Reference (AMR/BMA).
- *
- * RULE (CLAUDE.md §0): dimensions flagged `confirm: true` are ESTIMATES and must
- * be replaced with datasheet/measured values before production. The upload flow
- * measures real DXFs and the engineer confirms (SKILL.md §3.1). The FC6A below is
- * already corrected from the Step-0 spike measurement (70.19 × 103.29 mm).
+ * 中文化元器件库与柜体布局常量。
+ * 保留原项目 lib_key、型号、尺寸、分区及算法逻辑，仅修改面向用户的显示文字。
  */
 import type { Library, LayoutDefaults } from "./types";
 
-/** DIN modular device width unit (Ref 05 §9). */
+/** DIN 模数宽度单位。 */
 export const DIN_MODULE_MM = 18;
 
-/** Standard wire-duct face sizes; dragging the width edge snaps to these. (brief §7 Req5) */
+/** 标准线槽截面尺寸。 */
 export const STANDARD_DUCT_SIZES: ReadonlyArray<{ w: number; h: number }> = [
   { w: 30, h: 30 },
   { w: 30, h: 40 },
@@ -26,176 +22,161 @@ export const DEFAULTS: LayoutDefaults = {
   clearance_equipment_to_duct_mm: 3,
 };
 
-/** The two real enclosure form factors (Ref 05 §2). Plate size + side-duct rule. */
+/** 柜体模板。 */
 export const ENCLOSURE_TEMPLATES = {
   tall_floor: {
-    label: "Tall floor-standing (≈2000×800)",
+    label: "高型落地柜（约2000×800）",
     plate: { width_mm: 800, height_mm: 1500 },
-    side_duct: { width_mm: 60, label_h_mm: 60 }, // 60×60 both sides
-    row_duct: { width_mm: 40, label_h_mm: 60 }, // 40×60 (confirm vs 40×80)
+    side_duct: { width_mm: 60, label_h_mm: 60 },
+    row_duct: { width_mm: 40, label_h_mm: 60 },
   },
   wide_box: {
-    label: "Wide ventilated box (≈1200×800)",
+    label: "宽型通风控制箱（约1200×800）",
     plate: { width_mm: 800, height_mm: 700 },
-    side_duct: { width_mm: 40, label_h_mm: 60 }, // 40×60 both sides
+    side_duct: { width_mm: 40, label_h_mm: 60 },
     row_duct: { width_mm: 40, label_h_mm: 60 },
   },
 } as const;
 
-/**
- * Functional bands, top→bottom — the fixed packing order (Ref 05 §5).
- * Optional auto-pack flows parts into these bands then left→right within each.
- */
+/** 功能分区，从上到下排列。 */
 export const BANDS = [
-  { band: 1, name: "Power & protection" },
-  { band: 2, name: "Control & comms (PLC, IO, modem)" },
-  { band: 3, name: "Relays" },
-  { band: 4, name: "Terminal blocks" },
-  { band: 5, name: "Ground bar" },
-  { band: 6, name: "Stopper" },
-  { band: 7, name: "Slim Stopper" },
-  { band: 8, name: "Accessories" }, // catch-all for misc parts (glands, brackets, markers…)
+  { band: 1, name: "电源与保护" },
+  { band: 2, name: "控制与通讯（PLC、I/O、路由器）" },
+  { band: 3, name: "继电器" },
+  { band: 4, name: "接线端子" },
+  { band: 5, name: "接地排" },
+  { band: 6, name: "端子挡块" },
+  { band: 7, name: "窄型端子挡块" },
+  { band: 8, name: "附件" },
 ] as const;
 
-/** Categories whose parts behave as stoppers (get the "Add label plate" pairing; BOM type tag). */
+/** 作为挡块处理的分类。 */
 export const STOPPER_BANDS: ReadonlySet<number> = new Set([6, 7]);
 
 const _nameColl = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-/** A→Z comparator for library items by display name (numeric-aware, case-insensitive),
- *  so every part list (sidebar, Add-a-set, caps, Insert) reads alphabetically. */
+/** 按显示名称进行自然排序。 */
 export function byName(a: { name: string }, b: { name: string }): number {
   return _nameColl.compare(a.name || "", b.name || "");
 }
 
 /**
- * NOTE: the product no longer seeds the palette from this — the editor starts with
- * an EMPTY library and is populated by uploads (per the AMR house-style cleanup).
- * It's retained as the unit-test fixture (known parts + sizes) and as reference.
- * `confirm:true` = unconfirmed estimate; sizes are the device FOOTPRINT in mm.
+ * 默认元器件库。
+ * confirm:true 表示尺寸仍需根据实物、图纸或数据手册确认。
  */
 export const SEED_LIBRARY: Library = {
-  // --- Band 2: control & comms ---
+  // --- 分区2：控制与通讯 ---
   plc_idec_FC6A_R16CE: {
     lib_key: "plc_idec_FC6A_R16CE", source: "rect", name: "PLC IDEC FC6A-R16CE",
     band: 2, width_mm: 95, height_mm: 90, confirm: true,
   },
-  // Measured from the Step-0 spike DXF (FC6A-D16) — NOT an estimate.
   plc_idec_FC6A_D16: {
     lib_key: "plc_idec_FC6A_D16", source: "rect", name: "PLC IDEC FC6A-D16R1CEE",
     band: 2, width_mm: 70.19, height_mm: 103.29, confirm: false,
   },
   io_idec_FC6A_J8A1: {
-    lib_key: "io_idec_FC6A_J8A1", source: "rect", name: "AI Mod IDEC FC6A-J8A1",
+    lib_key: "io_idec_FC6A_J8A1", source: "rect", name: "模拟量输入模块 IDEC FC6A-J8A1",
     band: 2, width_mm: 30, height_mm: 90, confirm: true,
   },
   io_idec_FC6A_N32B3: {
-    lib_key: "io_idec_FC6A_N32B3", source: "rect", name: "DI Mod IDEC FC6A-N32B3",
+    lib_key: "io_idec_FC6A_N32B3", source: "rect", name: "数字量输入模块 IDEC FC6A-N32B3",
     band: 2, width_mm: 30, height_mm: 90, confirm: true,
   },
   io_idec_FC6A_M24BR1: {
-    lib_key: "io_idec_FC6A_M24BR1", source: "rect", name: "DIO Mod IDEC FC6A-M24BR1",
+    lib_key: "io_idec_FC6A_M24BR1", source: "rect", name: "数字量输入/输出模块 IDEC FC6A-M24BR1",
     band: 2, width_mm: 30, height_mm: 90, confirm: true,
   },
   modem_robustel_R1520_R4: {
-    lib_key: "modem_robustel_R1520_R4", source: "rect", name: "Modem Robustel R1520-R4",
+    lib_key: "modem_robustel_R1520_R4", source: "rect", name: "工业路由器 Robustel R1520-R4",
     band: 2, width_mm: 45, height_mm: 90, confirm: true,
   },
   poe_switch: {
-    lib_key: "poe_switch", source: "rect", name: "PoE Switch",
+    lib_key: "poe_switch", source: "rect", name: "PoE交换机",
     band: 2, width_mm: 60, height_mm: 90, confirm: true,
   },
 
-  // --- Band 1: power & protection ---
+  // --- 分区1：电源与保护 ---
   psu_switching_24vdc: {
-    lib_key: "psu_switching_24vdc", source: "rect", name: "Switching Supply 24VDC",
+    lib_key: "psu_switching_24vdc", source: "rect", name: "24VDC开关电源",
     band: 1, width_mm: 40, height_mm: 110, confirm: true,
   },
   mcp_2p: {
-    lib_key: "mcp_2p", source: "rect", name: "MCP 2P",
+    lib_key: "mcp_2p", source: "rect", name: "2P电动机保护断路器 MCP",
     band: 1, width_mm: 36, height_mm: 85, confirm: false,
   },
   mcb_3p: {
-    lib_key: "mcb_3p", source: "rect", name: "MCB 3P",
+    lib_key: "mcb_3p", source: "rect", name: "3P微型断路器 MCB",
     band: 1, width_mm: 54, height_mm: 85, confirm: false,
   },
   breaker_aux_S01: {
-    lib_key: "breaker_aux_S01", source: "rect", name: "S01 aux breaker",
+    lib_key: "breaker_aux_S01", source: "rect", name: "S01辅助断路器",
     band: 1, width_mm: 36, height_mm: 85, confirm: false,
   },
   spd: {
-    lib_key: "spd", source: "rect", name: "SPD",
+    lib_key: "spd", source: "rect", name: "浪涌保护器 SPD",
     band: 1, width_mm: 36, height_mm: 85, confirm: true,
   },
   surge_arrester: {
-    lib_key: "surge_arrester", source: "rect", name: "Surge Arrester",
+    lib_key: "surge_arrester", source: "rect", name: "避雷器",
     band: 1, width_mm: 18, height_mm: 85, confirm: true,
   },
   fuse_holder: {
-    lib_key: "fuse_holder", source: "rect", name: "Fuse Holder",
+    lib_key: "fuse_holder", source: "rect", name: "熔断器座",
     band: 1, width_mm: 18, height_mm: 70, confirm: true,
   },
   thermostat_no: {
-    lib_key: "thermostat_no", source: "rect", name: "Thermostat NO (TS01)",
+    lib_key: "thermostat_no", source: "rect", name: "常开温控器（TS01）",
     band: 1, width_mm: 45, height_mm: 50, confirm: true,
   },
 
-  // --- Band 3: relays ---
+  // --- 分区3：继电器 ---
   relay_220vac_2c: {
-    lib_key: "relay_220vac_2c", source: "rect", name: "Relay 220VAC 2C",
+    lib_key: "relay_220vac_2c", source: "rect", name: "220VAC 两组转换触点继电器",
     band: 3, width_mm: 15.5, height_mm: 80, confirm: true,
   },
   relay_24vdc_2c: {
-    lib_key: "relay_24vdc_2c", source: "rect", name: "Relay 24VDC 2C",
+    lib_key: "relay_24vdc_2c", source: "rect", name: "24VDC 两组转换触点继电器",
     band: 3, width_mm: 15.5, height_mm: 80, confirm: true,
   },
 
-  // --- Band 4: terminal blocks ---
+  // --- 分区4：接线端子 ---
   term_degson_2c_2_5: {
-    lib_key: "term_degson_2c_2_5", source: "rect", name: "Degson 2.5mm² 2C",
+    lib_key: "term_degson_2c_2_5", source: "rect", name: "DEGSON高松 2.5mm² 双层端子（2C）",
     band: 4, width_mm: 5.2, height_mm: 50, confirm: true,
   },
   term_degson_4c_2_5: {
-    lib_key: "term_degson_4c_2_5", source: "rect", name: "Degson 2.5mm² 4C",
+    lib_key: "term_degson_4c_2_5", source: "rect", name: "DEGSON高松 2.5mm² 四层端子（4C）",
     band: 4, width_mm: 5.2, height_mm: 50, confirm: true,
   },
   term_block_40pin: {
-    lib_key: "term_block_40pin", source: "rect", name: "Terminal Block 40-pin",
+    lib_key: "term_block_40pin", source: "rect", name: "40位接线端子排",
     band: 4, width_mm: 60, height_mm: 40, confirm: true,
   },
-  // End stopper (DIN-rail end bracket). Real dims, so confirm:false.
   term_stopper: {
-    lib_key: "term_stopper", source: "rect", name: "Stopper",
+    lib_key: "term_stopper", source: "rect", name: "DIN导轨端子挡块",
     band: 4, width_mm: 9.5, height_mm: 43.2, confirm: false,
   },
-  // The label/marker plate that pairs with a stopper — same footprint, centered
-  // vertical text. No `band` so it isn't a standalone palette button; it is placed
-  // (coincident with a stopper) only via the "Stopper with Label" action, and stays
-  // a distinct part so BOM / CAD block-count tallies it as "1 label".
   term_stopper_label: {
-    lib_key: "term_stopper_label", source: "rect", name: "Label for Stopper",
+    lib_key: "term_stopper_label", source: "rect", name: "端子挡块标记牌",
     width_mm: 9.5, height_mm: 43.2, confirm: false, label_plate: true,
   },
 
-  // --- Band 5: power distribution ---
+  // --- 分区5：电源分配 ---
   term_fuse_holder: {
-    lib_key: "term_fuse_holder", source: "rect", name: "Terminal Fuse Holder",
+    lib_key: "term_fuse_holder", source: "rect", name: "端子式熔断器座",
     band: 5, width_mm: 8, height_mm: 50, confirm: true,
   },
 
-  // --- Band 6: ground ---
+  // --- 分区6：接地 ---
   ground_bar_6: {
-    lib_key: "ground_bar_6", source: "rect", name: "Ground Bar 6-way",
+    lib_key: "ground_bar_6", source: "rect", name: "6位接地铜排",
     band: 6, width_mm: 120, height_mm: 15, confirm: true,
   },
 };
 
-/**
- * BOM-only accessories (Ref 05 §9): negligible geometry, but MUST appear in a BOM.
- * Modelled as zero-width items, never placed shapes. (CLAUDE.md / SKILL.md §5)
- */
+/** 仅用于 BOM 的附件。 */
 export const BOM_ONLY_ACCESSORIES = [
-  "End Cover (Degson)",
-  "End Plate for Degson Terminal 2C",
-  "End Plate for Degson Terminal 4C",
-  "End Stopper Marker Degson",
+  "DEGSON高松端子末端盖板",
+  "DEGSON高松2C端子末端隔板",
+  "DEGSON高松4C端子末端隔板",
+  "DEGSON高松端子挡块标记牌",
 ] as const;
