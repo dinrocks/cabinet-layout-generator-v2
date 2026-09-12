@@ -1,7 +1,6 @@
 /**
- * The top bar: project name, file/history/view/export groups, status chips and the
- * account cluster. Extracted verbatim from App.tsx (ROADMAP #8) — view only; all
- * state stays in App / useCloudProjects and arrives as props.
+ * 顶部工具栏：项目名称、文件、历史、视图、导出、状态和账户。
+ * 保留原有业务逻辑，仅中文化面向用户的文字。
  */
 import type { LayoutModel } from "../model/types";
 import type { useAuth } from "../auth/AuthContext";
@@ -36,7 +35,6 @@ interface Props {
   onDownload: () => void;
   onOpenFile: () => void;
   onBundle: () => void;
-  /** null = no cloud project open (Share disabled until first Save) */
   shareableId: string | null;
   onShare: () => void;
   onUndo: () => void;
@@ -61,79 +59,80 @@ export default function Toolbar({
   onUndo, onRedo, onZoom, onFit, onAlign, onCheckSvc, onDxfScale, onPaper,
   onExportDxf, onPdf, onPng, onSvg, onBom,
 }: Props) {
+  const svcText = svc === "online" ? "在线" : svc === "offline" ? "离线" : "检测中";
+
   return (
     <header className="topbar">
-      <strong>Cabinet Layout Generator</strong>
+      <strong>电柜布局生成器</strong>
       <span className="muted">
-        <span className="projname-field" title="Click to rename this project">
+        <span className="projname-field" title="点击可重命名当前项目">
           <span className="projname-ico" aria-hidden="true">✎</span>
-          <input className="projname" value={model.project.name} placeholder="Untitled project"
-            onChange={(e) => onRename(e.target.value)} aria-label="Project name" />
+          <input className="projname" value={model.project.name} placeholder="未命名项目"
+            onChange={(e) => onRename(e.target.value)} aria-label="项目名称" />
         </span>
         <span className="dim">· {model.plate.width_mm}×{model.plate.height_mm} mm</span>
         {lastSaved && (
-          <span className="savedby" title={`Last saved ${new Date(lastSaved.at).toLocaleString()}`}>
-            · saved by {lastSaved.name || "—"} {timeAgo(lastSaved.at)}
+          <span className="savedby" title={`最后保存时间 ${new Date(lastSaved.at).toLocaleString()}`}>
+            · {lastSaved.name || "—"} 保存于 {timeAgo(lastSaved.at)}
           </span>
         )}
       </span>
 
       <div className="toolbar">
-        {/* File */}
         <span className="group">
-          <button type="button" title="New layout" onClick={onNew}>New</button>
-          {ready && <button type="button" title="Open a saved layout" onClick={onOpenProjects}>Open…</button>}
-          {ready && <button type="button" title="Save to the cloud" disabled={cloudBusy} onClick={onSave}>Save</button>}
-          {ready && <button type="button" className="ghost" title="Save the current layout as a new project (a copy) and switch to it" disabled={cloudBusy} onClick={onDuplicate}>Duplicate</button>}
+          <button type="button" title="新建布局" onClick={onNew}>新建</button>
+          {ready && <button type="button" title="打开已保存项目" onClick={onOpenProjects}>打开…</button>}
+          {ready && <button type="button" title="保存到云端" disabled={cloudBusy} onClick={onSave}>保存</button>}
+          {ready && <button type="button" className="ghost" title="另存为一个新项目并切换到副本" disabled={cloudBusy} onClick={onDuplicate}>复制项目</button>}
           {ready && (
             <button type="button" className="ghost" disabled={!shareableId || cloudBusy}
               title={shareableId
-                ? "Share a read-only link (view + PDF/PNG of the latest saved version)"
-                : "Save the project to the cloud first, then share a read-only link"}
-              onClick={onShare}>Share</button>
+                ? "生成只读分享链接，可查看并导出最新版 PDF/PNG"
+                : "请先保存到云端，再生成只读分享链接"}
+              onClick={onShare}>分享</button>
           )}
-          <button type="button" className="ghost icon" title="Download layout as JSON" onClick={onDownload}>⬇</button>
-          <button type="button" className="ghost icon" title="Open a layout JSON file" onClick={onOpenFile}>⬆</button>
+          <button type="button" className="ghost icon" title="下载布局 JSON 文件" onClick={onDownload}>⬇</button>
+          <button type="button" className="ghost icon" title="打开布局 JSON 文件" onClick={onOpenFile}>⬆</button>
           <button type="button" className="ghost" disabled={busy}
-            title="Portable bundle: one ZIP with the layout JSON + every placed equipment DXF (nothing trapped in the cloud). Needs the DXF service for uploaded parts."
-            onClick={onBundle}>Bundle</button>
+            title="打包导出：布局 JSON + 已使用元器件 DXF，一次生成 ZIP 文件"
+            onClick={onBundle}>打包</button>
         </span>
-        {/* History */}
+
         <span className="group">
-          <button type="button" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">↶</button>
-          <button type="button" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">↷</button>
+          <button type="button" onClick={onUndo} disabled={!canUndo} title="撤销 (Ctrl+Z)">↶</button>
+          <button type="button" onClick={onRedo} disabled={!canRedo} title="重做 (Ctrl+Shift+Z)">↷</button>
         </span>
-        {/* View */}
+
         <span className="group">
-          <button type="button" className="icon" title="Zoom out" onClick={() => onZoom(clampZoom(zoom / 1.25))}>−</button>
-          <span className="zoompct" title="Current zoom">{Math.round(zoom * 100)}%</span>
-          <button type="button" className="icon" title="Zoom in" onClick={() => onZoom(clampZoom(zoom * 1.25))}>+</button>
-          <button type="button" className="ghost" title="Fit to view" onClick={onFit}>Fit</button>
-          <label className="field" title="Snap a dragged part adjacent to its neighbour with the 0.1mm gap, aligned to the rail centerline">
+          <button type="button" className="icon" title="缩小" onClick={() => onZoom(clampZoom(zoom / 1.25))}>−</button>
+          <span className="zoompct" title="当前缩放比例">{Math.round(zoom * 100)}%</span>
+          <button type="button" className="icon" title="放大" onClick={() => onZoom(clampZoom(zoom * 1.25))}>+</button>
+          <button type="button" className="ghost" title="适合窗口" onClick={onFit}>适合</button>
+          <label className="field" title="拖动元件时自动按0.1mm间隙吸附，并与导轨中心线对齐">
             <input type="checkbox" checked={alignEnabled} onChange={(e) => onAlign(e.target.checked)} />
-            Align
+            自动对齐
           </label>
         </span>
-        {/* Export — DXF */}
+
         <span className="group">
           <button type="button" className={`svc svc-${svc}`} onClick={onCheckSvc}
             title={
-              svc === "online" ? "ezdxf service online — DXF upload/export available (click to re-check)"
-                : svc === "offline" ? "ezdxf service offline — DXF disabled; PDF/PNG/SVG still work (click to retry)"
-                  : "checking ezdxf service…"
+              svc === "online" ? "DXF 服务在线，可上传和导出 DXF，点击重新检测"
+                : svc === "offline" ? "DXF 服务离线，DXF 上传/导出不可用；PDF/PNG/SVG 仍可使用"
+                  : "正在检测 DXF 服务…"
             }>
-            <span className="dot" /> DXF service: {svc}
+            <span className="dot" /> DXF服务：{svcText}
           </button>
-          <label className="field">DXF
+          <label className="field">DXF比例
             <select value={dxfScale} onChange={(e) => onDxfScale(e.target.value as DxfScale)}>
               <option value="1:1">1:1</option><option value="1:100">1:100</option>
             </select>
           </label>
-          <button type="button" disabled={busy} onClick={onExportDxf}>Export DXF</button>
+          <button type="button" disabled={busy} onClick={onExportDxf}>导出DXF</button>
         </span>
-        {/* Export — page + BOM */}
+
         <span className="group">
-          <label className="field">Paper
+          <label className="field">图纸
             <select value={paper} onChange={(e) => onPaper(e.target.value as Paper)}>
               <option value="A4">A4</option><option value="A3">A3</option>
             </select>
@@ -141,14 +140,14 @@ export default function Toolbar({
           <button type="button" className="ghost" disabled={busy} onClick={onPdf}>PDF</button>
           <button type="button" className="ghost" disabled={busy} onClick={onPng}>PNG</button>
           <button type="button" className="ghost" disabled={busy} onClick={onSvg}>SVG</button>
-          <button type="button" className="ghost" title="Bill of Materials — count placed parts by category, export CSV" onClick={onBom}>BOM</button>
+          <button type="button" className="ghost" title="物料清单：按分类统计已放置元器件，并可导出CSV" onClick={onBom}>BOM清单</button>
         </span>
-        {/* Right cluster: help · status · account (pushed right) */}
+
         <span className="group right">
-          <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
-            onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
+          <button type="button" className="ghost" title="打开使用说明"
+            onClick={() => window.open("/guide.html", "_blank", "noopener")}>? 帮助</button>
         </span>
-        {dirty && <span className="status dirty" title="Unsaved changes — Save (cloud) or ⬇ (file)">● unsaved</span>}
+        {dirty && <span className="status dirty" title="存在未保存修改，请保存到云端或下载文件">● 未保存</span>}
         {status.kind === "busy" && <span className="status">… {status.label}</span>}
         {status.kind === "done" && !dirty && <span className="status ok">✓ {status.label}</span>}
         {status.kind === "error" && <span className="status err" title={status.message}>✗ {status.message}</span>}
@@ -156,10 +155,10 @@ export default function Toolbar({
           {cloudEnabled && ready && auth.profile ? (
             <span className="acct">
               <span className="name" title={auth.email ?? ""}>{auth.profile.display_name || auth.email}</span>
-              <button type="button" onClick={auth.signOut}>Sign out</button>
+              <button type="button" onClick={auth.signOut}>退出登录</button>
             </span>
           ) : !cloudEnabled ? (
-            <span className="acct mode" title="Cloud sign-in not configured — running locally">Local mode</span>
+            <span className="acct mode" title="未配置云端登录，当前使用本地模式">本地模式</span>
           ) : null}
         </span>
       </div>
