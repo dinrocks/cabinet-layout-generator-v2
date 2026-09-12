@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd web && npm ci && npm run build",
+  "outputDirectory": "web/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/share/:path*", "destination": "/index.html" }
+  ]
+}
