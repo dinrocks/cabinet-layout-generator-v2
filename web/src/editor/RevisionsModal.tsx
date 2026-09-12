@@ -1,9 +1,3 @@
-/**
- * Project history: restorable saves (RISK_REVIEW R1, top) + the activity/audit
- * trail (who did what, when — created/saved/shared/…). Restoring loads a version
- * into the editor as UNSAVED work (nothing on the server changes until Save, which
- * then runs the stale-save guard). Deliberate close only (Close / Esc).
- */
 import { useEffect } from "react";
 import type { RevisionSummary, ProjectEvent, EventAction } from "../store/projectStore";
 
@@ -17,8 +11,8 @@ interface Props {
 }
 
 const ACTION_LABEL: Record<EventAction, string> = {
-  created: "created", saved: "saved", duplicated: "duplicated",
-  deleted: "deleted", shared: "shared a link", unshared: "revoked the link",
+  created: "新建了项目", saved: "保存了项目", duplicated: "复制了项目",
+  deleted: "删除了项目", shared: "创建了分享链接", unshared: "撤销了分享链接",
 };
 
 export default function RevisionsModal({ projectName, revisions, events, busy, onRestore, onClose }: Props) {
@@ -31,29 +25,29 @@ export default function RevisionsModal({ projectName, revisions, events, busy, o
   return (
     <div className="modal-overlay">
       <div className="modal">
-        <h3>History — {projectName || "Untitled"}</h3>
+        <h3>历史记录 — {projectName || "未命名"}</h3>
         <p className="bom-note">
-          Every Save keeps a copy here (the last 20). Restore loads that version into the editor as
-          <strong> unsaved</strong> work — press Save afterwards to make it the live version.
+          每次保存都会在这里保留一个版本（最多 20 个）。恢复版本会先作为<strong>未保存</strong>内容载入编辑器，
+          确认无误后再点击“保存”才会成为当前正式版本。
         </p>
         {revisions.length === 0 ? (
-          <p className="bom-empty">No saved versions yet — it starts recording from the next Save.</p>
+          <p className="bom-empty">还没有历史版本，从下一次保存开始记录。</p>
         ) : (
           <ul className="plist">
             {revisions.map((r, i) => (
               <li key={r.id}>
                 <button type="button" className="plist-open" disabled={busy} onClick={() => onRestore(r.id)}>
-                  <span className="pn">{i === 0 ? "Latest save" : `${i} save${i > 1 ? "s" : ""} back`}{r.name !== projectName ? ` · "${r.name}"` : ""}</span>
-                  <span className="pm">saved by {r.saved_by_name ?? "—"} · {new Date(r.saved_at).toLocaleString()}</span>
+                  <span className="pn">{i === 0 ? "最新保存版本" : `往前第 ${i} 个保存版本`}{r.name !== projectName ? ` · “${r.name}”` : ""}</span>
+                  <span className="pm">保存者：{r.saved_by_name ?? "—"} · {new Date(r.saved_at).toLocaleString()}</span>
                 </button>
               </li>
             ))}
           </ul>
         )}
 
-        <p className="bom-fields-head">Activity <span>(who did what — read-only)</span></p>
+        <p className="bom-fields-head">操作记录 <span>（只读）</span></p>
         {events.length === 0 ? (
-          <p className="bom-empty">No activity recorded yet.</p>
+          <p className="bom-empty">暂无操作记录。</p>
         ) : (
           <ul className="activity">
             {events.map((e) => (
@@ -68,7 +62,7 @@ export default function RevisionsModal({ projectName, revisions, events, busy, o
         )}
 
         <div className="modal-actions">
-          <button type="button" className="ghost" onClick={onClose}>Close</button>
+          <button type="button" className="ghost" onClick={onClose}>关闭</button>
         </div>
       </div>
     </div>
